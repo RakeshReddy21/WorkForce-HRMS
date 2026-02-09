@@ -1,0 +1,94 @@
+Application Overview
+RevWorkforce is a full-stack monolithic Human Resource Management (HRM) web application designed to streamline employee management, leave tracking, and performance review processes. The system supports three user roles: Employees, Managers, and Admins, each with specific functionalities accessible through an intuitive web interface. The application features responsive design, role-based dashboards, and automated notifications.
+
+Core Functional Requirements
+As an Employee, I should be able to:
+Authentication & Profile
+1.	Login to my account using employee ID/email and password
+2.	View my dashboard with key information (leave balance, pending leaves)
+3.	Edit basic profile information (phone number, address, emergency contact)
+4.	View my complete profile details
+5.	View my reporting manager details
+Leave Management Module
+6.	View available leave balance by type (Casual Leave, Sick Leave, Paid Leave)
+7.	Apply for leave with start date, end date, leave type, and reason
+8.	View all applied leaves with status (Pending/Approved/Rejected)
+9.	Cancel pending leave applications
+10.	View company holiday calendar
+11.	Receive in-app notifications when leave is approved or rejected
+Performance Management Module
+12.	Create performance review document with key deliverables, accomplishments, areas of improvement, and self-assessment rating
+13.	Submit performance review to manager
+14.	View submitted performance reviews with status
+15.	Set goals for the year with goal description, deadline, and priority (High/Medium/Low)
+16.	View all my goals with status
+17.	Update goal progress
+18.	View manager's feedback on performance review
+19.	Receive notifications when manager provides feedback
+Additional Features
+20.	View company announcements
+21.	Access employee directory with search functionality
+
+As a Manager, I should be able to:
+Note: All managers are employees, so they have access to all employee features plus the following:
+Leave Management Module
+1.	View list of direct reportees (employees reporting to me)
+2.	View leave applications from team members
+3.	Approve leave requests with optional comments
+4.	Reject leave requests with mandatory comments
+5.	View team leave calendar showing team members' leaves
+6.	View leave balance of team members
+7.	Receive in-app notifications when team member applies for leave
+Performance Management Module
+8.	View performance reviews submitted by direct reportees
+9.	Provide detailed feedback on employee performance reviews
+10.	Rate employee performance using rating scale (1-5)
+11.	Submit performance review feedback
+12.	Review employee goals and provide comments
+13.	View team member goal progress
+14.	Receive notifications when employee submits performance review
+Team Management
+15.	View team structure
+16.	Access team member profiles
+
+As an Admin, I should be able to:
+Employee Management
+1.	Add new employees with complete details (personal information, employee ID, department, designation, joining date, manager assignment, salary)
+2.	Update employee information
+3.	View all employee details with search and filters
+4.	Deactivate employee accounts
+5.	Reactivate employee accounts
+6.	Assign reporting manager to employees
+7.	Change reporting managers
+8.	Search employees by name, employee ID, department, or designation
+Leave Management
+9.	Configure leave types (Casual Leave, Sick Leave, Paid Leave)
+10.	Assign leave quotas to employees by leave type
+11.	Adjust leave balances manually with reason
+12.	View all employee leave information
+13.	Generate leave reports (department-wise, employee-wise)
+14.	Set and manage company holiday calendar
+15.	Add/edit/delete company holidays
+System Configuration
+16.	Manage departments (add, edit, delete, view)
+17.	Manage designations/job titles (add, edit, delete, view)
+18.	Create and manage company announcements
+19.	View system activity logs
+Reporting
+20.	View dashboard with key HR metrics (total employees, leave statistics)
+21.	Generate employee reports
+22.	Generate leave utilization reports
+
+Standard Functional Scope
+•	Authentication & Security
+•	Notification System
+•	User Interface & Experience
+•	Data Management
+Definition of Done
+1.	Working Web Application Demonstration
+2.	Code Repository Submission with:
+a)	ERD (Entity Relationship Diagram) 
+b)	Application Architecture Diagram 
+c)	README.md 
+d)	Testing Artifacts
+Key RP
