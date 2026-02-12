@@ -11,14 +11,18 @@ import java.time.LocalDateTime;
         @Index(name = "idx_notif_recipient", columnList = "recipient_id"),
         @Index(name = "idx_notif_read", columnList = "is_read")
 })
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString(exclude = {"recipient"})
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Notification {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "notification_id")
+    @EqualsAndHashCode.Include
     private Integer notificationId;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "recipient_id", nullable = false)

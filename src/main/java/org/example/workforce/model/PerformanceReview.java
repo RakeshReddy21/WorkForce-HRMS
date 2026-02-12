@@ -12,14 +12,18 @@ import java.time.LocalDateTime;
         @Index(name = "idx_review_emp", columnList = "employee_id"),
         @Index(name = "idx_review_status", columnList = "status")
 })
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString(exclude = {"employee", "reviewer"})
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class PerformanceReview {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "review_id")
+    @EqualsAndHashCode.Include
     private Integer reviewId;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "employee_id", nullable = false)
@@ -44,7 +48,7 @@ public class PerformanceReview {
     @Column(name = "manager_feedback", columnDefinition = "TEXT")
     private String managerFeedback;
     @Enumerated(EnumType.STRING)
-    @Column(length = 10)
+    @Column(length = 20)
     @Builder.Default
     private ReviewStatus status = ReviewStatus.DRAFT;
     @Column(name = "submitted_date")

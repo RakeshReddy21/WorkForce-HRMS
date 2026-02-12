@@ -8,14 +8,18 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "announcement", indexes = {@Index(name = "idx_announce_active", columnList = "is_active")})
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString(exclude = {"createdBy"})
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Announcement {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "announcement_id")
+    @EqualsAndHashCode.Include
     private Integer announcementId;
     @Column(nullable = false, length = 200)
     private String title;

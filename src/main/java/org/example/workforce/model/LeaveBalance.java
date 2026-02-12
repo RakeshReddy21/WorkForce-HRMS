@@ -10,14 +10,18 @@ import java.time.LocalDateTime;
 @Table(name = "leave_balance", uniqueConstraints = {
         @UniqueConstraint(name = "uk_emp_leave_year", columnNames = {"employee_id", "leave_type_id", "year"})
 }, indexes = {@Index(name = "idx_balance_year", columnList = "year")})
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString(exclude = {"employee", "leaveType", "adjustedBy"})
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class LeaveBalance {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "balance_id")
+    @EqualsAndHashCode.Include
     private Integer balanceId;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "employee_id", nullable = false)

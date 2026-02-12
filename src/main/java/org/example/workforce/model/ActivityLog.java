@@ -10,14 +10,18 @@ import java.time.LocalDateTime;
         @Index(name = "idx_log_entity", columnList = "entity_type"),
         @Index(name = "idx_log_created", columnList = "created_at")
 })
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString(exclude = {"performedBy"})
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class ActivityLog {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "log_id")
+    @EqualsAndHashCode.Include
     private Integer logId;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "performed_by")

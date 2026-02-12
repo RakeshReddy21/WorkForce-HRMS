@@ -14,14 +14,18 @@ import java.time.LocalDateTime;
         @Index(name = "idx_goal_emp", columnList = "employee_id"),
         @Index(name = "idx_goal_year", columnList = "year")
 })
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString(exclude = {"employee"})
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Goal {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "goal_id")
+    @EqualsAndHashCode.Include
     private Integer goalId;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "employee_id", nullable = false)
@@ -36,7 +40,7 @@ public class Goal {
     @Column(nullable = false)
     private LocalDate deadline;
     @Enumerated(EnumType.STRING)
-    @Column(length = 10)
+    @Column(length = 20)
     @Builder.Default
     private GoalPriority priority = GoalPriority.MEDIUM;
     @Enumerated(EnumType.STRING)

@@ -16,18 +16,21 @@ import java.time.LocalDate;
         @Index(name ="idx_emp_email", columnList = "email"),
         @Index(name = "idx_emp_name", columnList = "first_name, last_name"),
         @Index(name = "idx_emp_dept", columnList = "department_id"),
-        @Index(name = "idx_emp_manager", columnList = "manager_id"),
+        @Index(name = "idx_emp_manager", columnList = "manager_code"),
         @Index(name = "idx_emp_role", columnList = "role")
 })
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-
+@ToString(exclude = {"manager", "department", "designation"})
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Employee {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "employee_id")
+    @EqualsAndHashCode.Include
     private Integer employeeId;
     @Column(name = "employee_code", nullable = false, unique = true, length = 20)
     private String employeeCode;
@@ -66,7 +69,7 @@ public class Employee {
     @Column(precision = 12, scale = 2)
     private BigDecimal salary;
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "manager_id")
+    @JoinColumn(name = "manager_code", referencedColumnName = "employee_code")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Employee manager;
     @Enumerated(EnumType.STRING)

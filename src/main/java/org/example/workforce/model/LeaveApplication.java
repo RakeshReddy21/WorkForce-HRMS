@@ -14,14 +14,18 @@ import java.time.LocalDate;
         @Index(name = "idx_leave_status", columnList = "status"),
         @Index(name = "idx_leave_dates", columnList = "start_date, end_date")
 })
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString(exclude = {"employee", "leaveType", "actionedBy"})
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class LeaveApplication {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "leave_id")
+    @EqualsAndHashCode.Include
     private Integer leaveId;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "employee_id", nullable = false)
@@ -40,7 +44,7 @@ public class LeaveApplication {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String reason;
     @Enumerated(EnumType.STRING)
-    @Column(length = 10)
+    @Column(length = 20)
     @Builder.Default
     private LeaveStatus status = LeaveStatus.PENDING;
     @Column(name = "manager_comments", columnDefinition = "TEXT")
@@ -50,7 +54,6 @@ public class LeaveApplication {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Employee actionedBy;
     @Column(name = "applied_date", updatable = false)
-    @CreationTimestamp
     private LocalDateTime appliedDate;
     @Column(name = "action_date")
     private LocalDateTime actionDate;
