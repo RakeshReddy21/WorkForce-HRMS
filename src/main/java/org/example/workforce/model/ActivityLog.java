@@ -8,7 +8,9 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "activity_log", indexes = {
         @Index(name = "idx_log_entity", columnList = "entity_type"),
-        @Index(name = "idx_log_created", columnList = "created_at")
+        @Index(name = "idx_log_created", columnList = "created_at"),
+        @Index(name = "idx_log_action", columnList = "action"),
+        @Index(name = "idx_log_ip", columnList = "ip_address")
 })
 @Getter
 @Setter
@@ -35,6 +37,12 @@ public class ActivityLog {
     private Integer entityId;
     @Column(columnDefinition = "TEXT")
     private String details;
+    @Column(name = "ip_address", length = 45)
+    private String ipAddress;
+    @Column(name = "user_agent", length = 500)
+    private String userAgent;
+    @Column(name = "status", length = 20)
+    private String status;
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

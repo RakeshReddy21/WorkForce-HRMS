@@ -39,8 +39,10 @@ public class LeaveBalance {
     @Column(name = "used_leaves")
     @Builder.Default
     private Integer usedLeaves = 0;
-    @Column(name = "available_balance", insertable = false, updatable = false)
-    private Integer availableBalance;
+    @Transient
+    public Integer getAvailableBalance() {
+        return (totalLeaves != null ? totalLeaves : 0) - (usedLeaves != null ? usedLeaves : 0);
+    }
     @Column(name = "adjustment_reason", length = 500)
     private String adjustmentReason;
     @ManyToOne(fetch = FetchType.LAZY)
