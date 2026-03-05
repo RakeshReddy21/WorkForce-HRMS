@@ -16,4 +16,3 @@ public class TeamLeaveCalendarEntry {
     private int totalDays;
     private String status;
 }
-

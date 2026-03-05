@@ -20,7 +20,6 @@ public class ManagerAttendanceController {
     @Autowired
     private AttendanceService attendanceService;
 
-    // ==================== Team Attendance Today ====================
     @GetMapping("/team/today")
     public ResponseEntity<ApiResponse> getTeamAttendanceToday() {
         String managerEmail = getManagerEmail();
@@ -28,7 +27,6 @@ public class ManagerAttendanceController {
         return ResponseEntity.ok(new ApiResponse(true, "Team attendance for today fetched", teamAttendance));
     }
 
-    // ==================== Team Attendance by Date Range ====================
     @GetMapping("/team")
     public ResponseEntity<ApiResponse> getTeamAttendance(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -38,7 +36,6 @@ public class ManagerAttendanceController {
         return ResponseEntity.ok(new ApiResponse(true, "Team attendance fetched", teamAttendance));
     }
 
-    // ==================== Helpers ====================
     private String getManagerEmail() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated()) {
@@ -47,4 +44,3 @@ public class ManagerAttendanceController {
         return auth.getName();
     }
 }
-

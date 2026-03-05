@@ -44,7 +44,7 @@ public class DataSeeder {
                 designationRepository.saveAll(designations);
                 System.out.println("Seeded Designations");
             }
-            // Seed default leave types
+
             if (leaveTypeRepository.count() == 0) {
                 List<LeaveType> leaveTypes = Arrays.asList(
                         LeaveType.builder()

@@ -22,4 +22,3 @@ public class AttendanceSummaryResponse {
     private String month;
     private Integer year;
 }
-

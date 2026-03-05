@@ -41,6 +41,17 @@ public class EmployeeDirectoryController {
     }
 
     private EmployeeDirectoryResponse mapToDirectoryResponse(Employee employee) {
-        return EmployeeDirectoryResponse.builder().employeeCode(employee.getEmployeeCode()).firstName(employee.getFirstName()).lastName(employee.getLastName()).email(employee.getEmail()).phone(employee.getPhone()).departmentName(employee.getDepartment() != null ? employee.getDepartment().getDepartmentName() : null).designationTitle(employee.getDesignation() != null ? employee.getDesignation().getDesignationName() : null).role(employee.getRole().name()).isActive(employee.getIsActive()).build();
+        return EmployeeDirectoryResponse.builder()
+                .employeeId(employee.getEmployeeId())
+                .employeeCode(employee.getEmployeeCode())
+                .firstName(employee.getFirstName())
+                .lastName(employee.getLastName())
+                .email(employee.getEmail())
+                .phone(employee.getPhone())
+                .departmentName(employee.getDepartment() != null ? employee.getDepartment().getDepartmentName() : null)
+                .designationTitle(employee.getDesignation() != null ? employee.getDesignation().getDesignationName() : null)
+                .role(employee.getRole().name())
+                .isActive(employee.getIsActive())
+                .build();
     }
 }

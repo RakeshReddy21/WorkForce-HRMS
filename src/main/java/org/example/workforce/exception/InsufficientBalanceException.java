@@ -9,4 +9,3 @@ public class InsufficientBalanceException extends RuntimeException {
         super(String.format("Insufficient leave balance. Available: %d, Requested: %d", available, requested));
     }
 }
-

@@ -31,7 +31,7 @@ public class LeaveBalance {
     @JoinColumn(name = "leave_type_id", nullable = false)
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private LeaveType leaveType;
-    @Column(nullable = false)
+    @Column(name = "year", nullable = false)
     private Integer year;
     @Column(name = "total_leaves")
     @Builder.Default

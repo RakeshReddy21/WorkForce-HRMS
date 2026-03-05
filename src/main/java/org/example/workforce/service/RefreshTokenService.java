@@ -22,14 +22,13 @@ public class RefreshTokenService {
     private EmployeeRepository employeeRepository;
 
     @Value("${jwt.refresh-expiration:604800000}")
-    private long refreshTokenExpiration; // 7 days default
+    private long refreshTokenExpiration;
 
     @Transactional
     public RefreshToken createRefreshToken(String email) {
         Employee employee = employeeRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Employee not found with email: " + email));
 
-        // Revoke existing tokens for this employee
         refreshTokenRepository.revokeAllByEmployee(employee.getEmployeeId());
 
         RefreshToken refreshToken = RefreshToken.builder()
@@ -75,4 +74,3 @@ public class RefreshTokenService {
         return refreshTokenRepository.deleteExpiredAndRevoked(LocalDateTime.now());
     }
 }
-

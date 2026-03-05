@@ -26,4 +26,3 @@ public class EmployeeReportResponse {
         private long count;
     }
 }
-

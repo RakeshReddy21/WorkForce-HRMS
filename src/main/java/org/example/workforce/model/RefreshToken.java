@@ -49,4 +49,3 @@ public class RefreshToken {
         return expiryDate.isBefore(LocalDateTime.now());
     }
 }
-

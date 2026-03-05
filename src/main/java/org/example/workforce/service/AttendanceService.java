@@ -10,6 +10,8 @@ import org.example.workforce.model.Employee;
 import org.example.workforce.model.enums.AttendanceStatus;
 import org.example.workforce.repository.AttendanceRepository;
 import org.example.workforce.repository.EmployeeRepository;
+import org.example.workforce.service.GeoAttendanceService;
+import org.example.workforce.service.GeoAttendanceService.GeoVerificationResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -29,6 +31,8 @@ public class AttendanceService {
     private AttendanceRepository attendanceRepository;
     @Autowired
     private EmployeeRepository employeeRepository;
+    @Autowired
+    private GeoAttendanceService geoAttendanceService;
 
     @Value("${attendance.office-start-time:09:00}")
     private String officeStartTime;
@@ -42,7 +46,6 @@ public class AttendanceService {
     @Value("${attendance.early-departure-threshold-minutes:30}")
     private int earlyDepartureThresholdMinutes;
 
-    // ==================== Employee Check-In ====================
     @Transactional
     public AttendanceResponse checkIn(String email, CheckInRequest request, String ipAddress) {
         Employee employee = employeeRepository.findByEmail(email)
@@ -62,12 +65,34 @@ public class AttendanceService {
         LocalTime startTime = LocalTime.parse(officeStartTime);
         boolean isLate = now.toLocalTime().isAfter(startTime.plusMinutes(lateThresholdMinutes));
 
+        boolean locationVerified = false;
+        Double checkInDistance = null;
+        String officeLocationName = null;
+
+        if (request != null && request.getLatitude() != null && request.getLongitude() != null) {
+            GeoVerificationResult geoResult = geoAttendanceService.verifyLocation(
+                    request.getLatitude(), request.getLongitude());
+
+            if (!geoResult.withinFence()) {
+                throw new InvalidActionException("Geo-fence check failed: " + geoResult.message());
+            }
+
+            locationVerified = true;
+            checkInDistance = geoResult.distanceMeters();
+            officeLocationName = geoResult.message();
+        }
+
         Attendance attendance = Attendance.builder()
                 .employee(employee)
                 .attendanceDate(today)
                 .checkInTime(now)
                 .status(AttendanceStatus.PRESENT)
                 .checkInIp(ipAddress)
+                .checkInLatitude(request != null ? request.getLatitude() : null)
+                .checkInLongitude(request != null ? request.getLongitude() : null)
+                .locationVerified(locationVerified)
+                .checkInDistanceMeters(checkInDistance)
+                .officeLocationName(officeLocationName)
                 .notes(request != null ? request.getNotes() : null)
                 .isLate(isLate)
                 .build();
@@ -76,7 +101,6 @@ public class AttendanceService {
         return mapToResponse(saved);
     }
 
-    // ==================== Employee Check-Out ====================
     @Transactional
     public AttendanceResponse checkOut(String email, CheckOutRequest request, String ipAddress) {
         Employee employee = employeeRepository.findByEmail(email)
@@ -98,6 +122,16 @@ public class AttendanceService {
         LocalTime endTime = LocalTime.parse(officeEndTime);
         boolean isEarlyDeparture = now.toLocalTime().isBefore(endTime.minusMinutes(earlyDepartureThresholdMinutes));
 
+        if (request != null && request.getLatitude() != null && request.getLongitude() != null) {
+            GeoVerificationResult geoResult = geoAttendanceService.verifyLocation(
+                    request.getLatitude(), request.getLongitude());
+
+            attendance.setCheckOutLatitude(request.getLatitude());
+            attendance.setCheckOutLongitude(request.getLongitude());
+            attendance.setCheckOutDistanceMeters(geoResult.distanceMeters());
+
+        }
+
         attendance.setCheckOutTime(now);
         attendance.setCheckOutIp(ipAddress);
         attendance.setIsEarlyDeparture(isEarlyDeparture);
@@ -108,7 +142,6 @@ public class AttendanceService {
             attendance.setNotes(existingNotes + request.getNotes());
         }
 
-        // If worked less than 4 hours, mark as HALF_DAY
         if (attendance.getTotalHours() != null && attendance.getTotalHours() < 4.0) {
             attendance.setStatus(AttendanceStatus.HALF_DAY);
         }
@@ -117,7 +150,6 @@ public class AttendanceService {
         return mapToResponse(saved);
     }
 
-    // ==================== Get Today's Status ====================
     @Transactional(readOnly = true)
     public AttendanceResponse getTodayStatus(String email) {
         Employee employee = employeeRepository.findByEmail(email)
@@ -140,7 +172,6 @@ public class AttendanceService {
         return mapToResponse(attendance);
     }
 
-    // ==================== My Attendance History ====================
     @Transactional(readOnly = true)
     public Page<AttendanceResponse> getMyAttendance(String email, LocalDate startDate, LocalDate endDate, Pageable pageable) {
         Employee employee = employeeRepository.findByEmail(email)
@@ -157,7 +188,6 @@ public class AttendanceService {
         return attendancePage.map(this::mapToResponse);
     }
 
-    // ==================== My Attendance Summary ====================
     @Transactional(readOnly = true)
     public AttendanceSummaryResponse getMySummary(String email, Integer month, Integer year) {
         Employee employee = employeeRepository.findByEmail(email)
@@ -172,7 +202,6 @@ public class AttendanceService {
         return buildSummary(employee, startDate, endDate, targetMonth, targetYear);
     }
 
-    // ==================== Manager: Team Attendance ====================
     @Transactional(readOnly = true)
     public List<AttendanceResponse> getTeamAttendanceToday(String managerEmail) {
         Employee manager = employeeRepository.findByEmail(managerEmail)
@@ -198,7 +227,6 @@ public class AttendanceService {
         return teamAttendance.stream().map(this::mapToResponse).collect(Collectors.toList());
     }
 
-    // ==================== Admin: All Attendance by Date ====================
     @Transactional(readOnly = true)
     public Page<AttendanceResponse> getAllAttendanceByDate(LocalDate date, Pageable pageable) {
         if (date == null) date = LocalDate.now();
@@ -206,7 +234,6 @@ public class AttendanceService {
         return attendancePage.map(this::mapToResponse);
     }
 
-    // ==================== Admin: Employee Attendance Summary ====================
     @Transactional(readOnly = true)
     public AttendanceSummaryResponse getEmployeeSummary(String employeeCode, Integer month, Integer year) {
         Employee employee = employeeRepository.findByEmployeeCode(employeeCode)
@@ -221,7 +248,6 @@ public class AttendanceService {
         return buildSummary(employee, startDate, endDate, targetMonth, targetYear);
     }
 
-    // ==================== Helpers ====================
     private AttendanceSummaryResponse buildSummary(Employee employee, LocalDate startDate, LocalDate endDate,
                                                     int month, int year) {
         long present = attendanceRepository.countByEmployeeAndDateRangeAndStatus(
@@ -269,6 +295,15 @@ public class AttendanceService {
                 .status(attendance.getStatus().name())
                 .checkInIp(attendance.getCheckInIp())
                 .checkOutIp(attendance.getCheckOutIp())
+
+                .checkInLatitude(attendance.getCheckInLatitude())
+                .checkInLongitude(attendance.getCheckInLongitude())
+                .checkOutLatitude(attendance.getCheckOutLatitude())
+                .checkOutLongitude(attendance.getCheckOutLongitude())
+                .locationVerified(attendance.getLocationVerified())
+                .checkInDistanceMeters(attendance.getCheckInDistanceMeters())
+                .checkOutDistanceMeters(attendance.getCheckOutDistanceMeters())
+                .officeLocationName(attendance.getOfficeLocationName())
                 .notes(attendance.getNotes())
                 .isLate(attendance.getIsLate())
                 .isEarlyDeparture(attendance.getIsEarlyDeparture())
@@ -276,4 +311,3 @@ public class AttendanceService {
                 .build();
     }
 }
-

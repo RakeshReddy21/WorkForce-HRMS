@@ -13,10 +13,10 @@ import lombok.NoArgsConstructor;
 public class PerformanceReviewRequest {
     @NotBlank(message = "Review period is required (e.g., 2026-H1, 2026-Q1)")
     private String reviewPeriod;
-    private String KeyDeliverables;
+    private String keyDeliverables;
     private String accomplishments;
     private String areasOfImprovement;
     @Min(value = 1, message = "Self assessment rating must be between 1 and 5")
-    @Max(value = 1, message = "Self assessment rating must be between 1 and 5")
+    @Max(value = 5, message = "Self assessment rating must be between 1 and 5")
     private Integer selfAssessmentRating;
 }

@@ -43,13 +43,16 @@ public class EmployeeService {
             }
         }
         String employeeCode = generateEmployeeCode(role);
+
+        boolean enforce2FA = (role == Role.EMPLOYEE || role == Role.MANAGER);
+
         Employee employee = Employee.builder()
                 .firstName(request.getFirstName()).lastName(request.getLastName())
                 .email(request.getEmail()).passwordHash(passwordEncoder.encode(request.getPassword()))
                 .employeeCode(employeeCode).phone(request.getPhone()).dateOfBirth(request.getDateOfBirth())
                 .address(request.getAddress()).emergencyContactName(request.getEmergencyContactName())
                 .emergencyContactPhone(request.getEmergencyContactPhone()).joiningDate(request.getJoiningDate())
-                .salary(request.getSalary()).role(role).build();
+                .salary(request.getSalary()).role(role).twoFactorEnabled(enforce2FA).build();
         if (request.getGender() != null && !request.getGender().isBlank()) {
             try {
                 employee.setGender(Gender.valueOf(request.getGender().toUpperCase()));
@@ -185,6 +188,7 @@ public class EmployeeService {
                 .salary(employee.getSalary())
                 .role(employee.getRole().name())
                 .isActive(employee.getIsActive())
+                .twoFactorEnabled(employee.getTwoFactorEnabled())
                 .createdAt(employee.getCreatedAt())
                 .updatedAt(employee.getUpdatedAt())
                 .manager(managerInfo)
@@ -296,6 +300,11 @@ public class EmployeeService {
                 Role newRole = Role.valueOf(request.getRole().toUpperCase());
                 changes.append("Role: '").append(employee.getRole()).append("' -> '").append(newRole).append("'; ");
                 employee.setRole(newRole);
+
+                if ((newRole == Role.EMPLOYEE || newRole == Role.MANAGER) && !Boolean.TRUE.equals(employee.getTwoFactorEnabled())) {
+                    employee.setTwoFactorEnabled(true);
+                    changes.append("2FA: auto-enabled (mandatory for ").append(newRole).append("); ");
+                }
             } catch (IllegalArgumentException e) {
                 throw new BadRequestException("Invalid role: " + request.getRole() + ". Allowed: EMPLOYEE, MANAGER, ADMIN");
             }
@@ -339,7 +348,6 @@ public class EmployeeService {
         return mapToProfileResponse(saved);
     }
 
-    // ==================== Password Change (Self) ====================
     public void changePassword(String email, ChangePasswordRequest request) {
         Employee employee = getEmployeeByEmail(email);
 
@@ -361,7 +369,6 @@ public class EmployeeService {
                 .entityId(employee.getEmployeeId()).details("Employee changed their own password").build());
     }
 
-    // ==================== Force Reset Password (Admin) ====================
     public void forceResetPassword(String employeeCode, String newPassword, String adminEmail) {
         Employee employee = employeeRepository.findByEmployeeCode(employeeCode)
                 .orElseThrow(() -> new ResourceNotFoundException("Employee not found with code: " + employeeCode));
@@ -374,6 +381,62 @@ public class EmployeeService {
                 .performedBy(admin).action("ADMIN_FORCE_RESET_PASSWORD").entityType("EMPLOYEE")
                 .entityId(employee.getEmployeeId())
                 .details("Admin force-reset password for employee: " + employeeCode).build());
+    }
+
+    public void enable2FA(String employeeCode, String adminEmail) {
+        Employee employee = employeeRepository.findByEmployeeCode(employeeCode)
+                .orElseThrow(() -> new ResourceNotFoundException("Employee not found with code: " + employeeCode));
+        if (Boolean.TRUE.equals(employee.getTwoFactorEnabled())) {
+            throw new InvalidActionException("2FA is already enabled for this employee");
+        }
+        employee.setTwoFactorEnabled(true);
+        employeeRepository.save(employee);
+        Employee admin = getEmployeeByEmail(adminEmail);
+        activityLogRepository.save(ActivityLog.builder()
+                .performedBy(admin).action("ENABLE_2FA").entityType("EMPLOYEE")
+                .entityId(employee.getEmployeeId())
+                .details("Admin enabled 2FA for employee: " + employeeCode).build());
+    }
+
+    public void disable2FA(String employeeCode, String adminEmail) {
+        Employee employee = employeeRepository.findByEmployeeCode(employeeCode)
+                .orElseThrow(() -> new ResourceNotFoundException("Employee not found with code: " + employeeCode));
+
+        if (employee.getRole() == Role.EMPLOYEE || employee.getRole() == Role.MANAGER) {
+            throw new InvalidActionException("Two-factor authentication is mandatory for "
+                    + employee.getRole().name() + " role and cannot be disabled.");
+        }
+
+        if (!Boolean.TRUE.equals(employee.getTwoFactorEnabled())) {
+            throw new InvalidActionException("2FA is already disabled for this employee");
+        }
+        employee.setTwoFactorEnabled(false);
+        employeeRepository.save(employee);
+        Employee admin = getEmployeeByEmail(adminEmail);
+        activityLogRepository.save(ActivityLog.builder()
+                .performedBy(admin).action("DISABLE_2FA").entityType("EMPLOYEE")
+                .entityId(employee.getEmployeeId())
+                .details("Admin disabled 2FA for employee: " + employeeCode).build());
+    }
+
+    public int forceEnable2FAForAll(String adminEmail) {
+        Employee admin = getEmployeeByEmail(adminEmail);
+
+        var employees = employeeRepository.findAll();
+        int count = 0;
+        for (Employee emp : employees) {
+            if ((emp.getRole() == Role.EMPLOYEE || emp.getRole() == Role.MANAGER)
+                    && !Boolean.TRUE.equals(emp.getTwoFactorEnabled())) {
+                emp.setTwoFactorEnabled(true);
+                employeeRepository.save(emp);
+                count++;
+            }
+        }
+        activityLogRepository.save(ActivityLog.builder()
+                .performedBy(admin).action("FORCE_ENABLE_2FA_ALL").entityType("SYSTEM")
+                .entityId(admin.getEmployeeId())
+                .details("Admin force-enabled 2FA for " + count + " employees/managers").build());
+        return count;
     }
 
     public EmployeeProfileResponse assignManager(String employeeCode, String managerCode, String adminEmail) {

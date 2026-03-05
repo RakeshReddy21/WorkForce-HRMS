@@ -23,7 +23,7 @@ public class Holiday {
     private LocalDate holidayDate;
     @Column(length = 500)
     private String description;
-    @Column(nullable = false)
+    @Column(name = "year", nullable = false)
     private Integer year;
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

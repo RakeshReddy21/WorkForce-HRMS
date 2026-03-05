@@ -59,6 +59,31 @@ public class Attendance {
     @Column(name = "check_out_ip", length = 45)
     private String checkOutIp;
 
+    @Column(name = "check_in_latitude")
+    private Double checkInLatitude;
+
+    @Column(name = "check_in_longitude")
+    private Double checkInLongitude;
+
+    @Column(name = "check_out_latitude")
+    private Double checkOutLatitude;
+
+    @Column(name = "check_out_longitude")
+    private Double checkOutLongitude;
+
+    @Column(name = "location_verified")
+    @Builder.Default
+    private Boolean locationVerified = false;
+
+    @Column(name = "check_in_distance_meters")
+    private Double checkInDistanceMeters;
+
+    @Column(name = "check_out_distance_meters")
+    private Double checkOutDistanceMeters;
+
+    @Column(name = "office_location_name", length = 100)
+    private String officeLocationName;
+
     @Column(name = "notes", length = 500)
     private String notes;
 
@@ -87,4 +112,3 @@ public class Attendance {
         return 0.0;
     }
 }
-

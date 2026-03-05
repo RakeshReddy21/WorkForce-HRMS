@@ -9,5 +9,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class CheckInRequest {
     private String notes;
-}
 
+    private Double latitude;
+
+    private Double longitude;
+}

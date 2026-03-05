@@ -40,7 +40,6 @@ public class EmployeeController {
         return ResponseEntity.ok(new ApiResponse(true, "Profile updated successfully", profile));
     }
 
-    // ==================== Change Password (Self) ====================
     @PutMapping("/me/change-password")
     public ResponseEntity<ApiResponse> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
         String email = getCurrentUserEmail();

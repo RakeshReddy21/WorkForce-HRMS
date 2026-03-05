@@ -78,13 +78,33 @@ public class AdminEmployeeController {
         return ResponseEntity.ok(new ApiResponse(true, "Manager assigned successfully", profile));
     }
 
-    // ==================== Force Reset Password (Admin) ====================
     @PatchMapping("/{employeeCode}/reset-password")
     public ResponseEntity<ApiResponse> forceResetPassword(@PathVariable String employeeCode,
                                                            @Valid @RequestBody ForceResetPasswordRequest request) {
         String adminEmail = getAdminEmail();
         employeeService.forceResetPassword(employeeCode, request.getNewPassword(), adminEmail);
         return ResponseEntity.ok(new ApiResponse(true, "Password for " + employeeCode + " has been reset successfully"));
+    }
+
+    @PatchMapping("/{employeeCode}/enable-2fa")
+    public ResponseEntity<ApiResponse> enable2FA(@PathVariable String employeeCode) {
+        String adminEmail = getAdminEmail();
+        employeeService.enable2FA(employeeCode, adminEmail);
+        return ResponseEntity.ok(new ApiResponse(true, "2FA has been enabled for " + employeeCode));
+    }
+
+    @PatchMapping("/{employeeCode}/disable-2fa")
+    public ResponseEntity<ApiResponse> disable2FA(@PathVariable String employeeCode) {
+        String adminEmail = getAdminEmail();
+        employeeService.disable2FA(employeeCode, adminEmail);
+        return ResponseEntity.ok(new ApiResponse(true, "2FA has been disabled for " + employeeCode));
+    }
+
+    @PostMapping("/force-enable-2fa")
+    public ResponseEntity<ApiResponse> forceEnable2FAForAll() {
+        String adminEmail = getAdminEmail();
+        int count = employeeService.forceEnable2FAForAll(adminEmail);
+        return ResponseEntity.ok(new ApiResponse(true, "2FA force-enabled for " + count + " employees"));
     }
 
     private String getAdminEmail() {

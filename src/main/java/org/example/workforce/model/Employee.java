@@ -79,6 +79,9 @@ public class Employee {
     @Column(name = "is_active")
     @Builder.Default
     private Boolean isActive = true;
+    @Column(name = "two_factor_enabled")
+    @Builder.Default
+    private Boolean twoFactorEnabled = false;
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

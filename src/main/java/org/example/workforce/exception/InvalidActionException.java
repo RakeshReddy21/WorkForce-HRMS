@@ -9,4 +9,3 @@ public class InvalidActionException extends RuntimeException {
         super(String.format("Invalid action '%s'. Allowed actions: %s", action, allowedActions));
     }
 }
-

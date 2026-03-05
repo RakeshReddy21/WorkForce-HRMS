@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import org.example.workforce.dto.AdjustLeaveBalanceRequest;
 import org.example.workforce.dto.ApiResponse;
 import org.example.workforce.dto.HolidayRequest;
+import org.example.workforce.dto.LeaveActionRequest;
 import org.example.workforce.dto.LeaveTypeRequest;
 import org.example.workforce.exception.UnauthorizedException;
 import org.example.workforce.model.Holiday;
@@ -91,6 +92,13 @@ public class AdminLeaveController {
         Pageable pageable = PageRequest.of(page, size, sort);
         Page<LeaveApplication> applications = leaveService.getAllLeaveApplications(status, pageable);
         return ResponseEntity.ok(new ApiResponse(true, "All leave applications fetched successfully", applications));
+    }
+
+    @PatchMapping("/{leaveId}/action")
+    public ResponseEntity<ApiResponse> actionLeave(@PathVariable Integer leaveId, @Valid @RequestBody LeaveActionRequest request) {
+        String adminEmail = getAdminEmail();
+        LeaveApplication leave = leaveService.adminActionLeave(adminEmail, leaveId, request);
+        return ResponseEntity.ok(new ApiResponse(true, "Leave " + leave.getStatus().name().toLowerCase() + " successfully", leave));
     }
 
     @GetMapping("/holidays")

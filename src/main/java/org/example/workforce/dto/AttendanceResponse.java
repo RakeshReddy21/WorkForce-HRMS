@@ -24,9 +24,18 @@ public class AttendanceResponse {
     private String status;
     private String checkInIp;
     private String checkOutIp;
+
+    private Double checkInLatitude;
+    private Double checkInLongitude;
+    private Double checkOutLatitude;
+    private Double checkOutLongitude;
+    private Boolean locationVerified;
+    private Double checkInDistanceMeters;
+    private Double checkOutDistanceMeters;
+    private String officeLocationName;
+
     private String notes;
     private Boolean isLate;
     private Boolean isEarlyDeparture;
     private LocalDateTime createdAt;
 }
-

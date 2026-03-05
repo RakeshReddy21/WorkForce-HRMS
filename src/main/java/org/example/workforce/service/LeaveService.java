@@ -4,6 +4,7 @@ import org.example.workforce.dto.*;
 import org.example.workforce.exception.*;
 import org.example.workforce.model.*;
 import org.example.workforce.model.enums.LeaveStatus;
+import org.example.workforce.model.enums.Role;
 import org.example.workforce.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -15,6 +16,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -58,13 +60,27 @@ public class LeaveService {
             throw new BadRequestException("No working days in the selected date range");
         }
         int currentYear = request.getStartDate().getYear();
+
         LeaveBalance balance = leaveBalanceRepository
                 .findByEmployee_EmployeeIdAndLeaveType_LeaveTypeIdAndYear(
                         employee.getEmployeeId(), leaveType.getLeaveTypeId(), currentYear)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Leave balance not found. Contact admin to assign leave quota."));
+                .orElseGet(() -> {
 
-        if (balance.getAvailableBalance() < totalDays) {
+                    Integer defaultTotal = leaveType.getIsLossOfPay() ? 0 :
+                            (leaveType.getDefaultDays() != null ? leaveType.getDefaultDays() : 0);
+
+                    LeaveBalance newBalance = LeaveBalance.builder()
+                            .employee(employee)
+                            .leaveType(leaveType)
+                            .year(currentYear)
+                            .totalLeaves(defaultTotal)
+                            .usedLeaves(0)
+                            .adjustmentReason("Auto-created on leave application")
+                            .build();
+                    return leaveBalanceRepository.save(newBalance);
+                });
+
+        if (!leaveType.getIsLossOfPay() && balance.getAvailableBalance() < totalDays) {
             throw new InsufficientBalanceException(
                     "Insufficient leave balance. Available: " + balance.getAvailableBalance() + ", Requested: " + totalDays);
         }
@@ -110,7 +126,30 @@ public class LeaveService {
         Employee employee = employeeRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Employee not found with email: " + email));
         int currentYear = LocalDate.now().getYear();
-        return leaveBalanceRepository.findByEmployee_EmployeeIdAndYear(employee.getEmployeeId(), currentYear);
+
+        List<LeaveBalance> balances = leaveBalanceRepository.findByEmployee_EmployeeIdAndYear(employee.getEmployeeId(), currentYear);
+
+        List<LeaveType> allActiveLeaveTypes = leaveTypeRepository.findByIsActive(true);
+
+        Set<Integer> existingLeaveTypeIds = balances.stream()
+                .map(b -> b.getLeaveType().getLeaveTypeId())
+                .collect(Collectors.toSet());
+
+        for (LeaveType leaveType : allActiveLeaveTypes) {
+            if (!existingLeaveTypeIds.contains(leaveType.getLeaveTypeId())) {
+
+                LeaveBalance zeroBalance = LeaveBalance.builder()
+                        .employee(employee)
+                        .leaveType(leaveType)
+                        .year(currentYear)
+                        .totalLeaves(leaveType.getDefaultDays() != null ? leaveType.getDefaultDays() : 0)
+                        .usedLeaves(0)
+                        .build();
+                balances.add(zeroBalance);
+            }
+        }
+
+        return balances;
     }
 
     public List<Holiday> getHolidays(Integer year) {
@@ -120,10 +159,11 @@ public class LeaveService {
     public Page<LeaveApplication> getTeamLeaves(String managerEmail, LeaveStatus status, Pageable pageable) {
         Employee manager = employeeRepository.findByEmail(managerEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("Manager not found with email: " + managerEmail));
+
         if (status != null) {
-            return leaveApplicationRepository.findByManagerCodeAndStatus(manager.getEmployeeCode(), status, pageable);
+            return leaveApplicationRepository.findByManagerCodeAndStatusExcludingManagers(manager.getEmployeeCode(), status, pageable);
         }
-        return leaveApplicationRepository.findByManagerCode(manager.getEmployeeCode(), pageable);
+        return leaveApplicationRepository.findByManagerCodeExcludingManagers(manager.getEmployeeCode(), pageable);
     }
 
     @Transactional
@@ -135,6 +175,10 @@ public class LeaveService {
         if (leave.getEmployee().getManager() == null ||
                 !leave.getEmployee().getManager().getEmployeeCode().equals(manager.getEmployeeCode())) {
             throw new AccessDeniedException("This leave application does not belong to your team");
+        }
+
+        if (leave.getEmployee().getRole() == Role.MANAGER) {
+            throw new AccessDeniedException("Manager leave applications can only be actioned by an admin");
         }
         if (leave.getStatus() != LeaveStatus.PENDING) {
             throw new InvalidActionException("Only pending leaves can be approved/rejected. Current status: " + leave.getStatus());
@@ -153,6 +197,48 @@ public class LeaveService {
         leave.setStatus(newStatus);
         leave.setManagerComments(request.getComments());
         leave.setActionedBy(manager);
+        leave.setActionDate(LocalDateTime.now());
+        if (newStatus == LeaveStatus.APPROVED) {
+            int year = leave.getStartDate().getYear();
+            LeaveBalance balance = leaveBalanceRepository
+                    .findByEmployee_EmployeeIdAndLeaveType_LeaveTypeIdAndYear(
+                            leave.getEmployee().getEmployeeId(), leave.getLeaveType().getLeaveTypeId(), year)
+                    .orElseThrow(() -> new ResourceNotFoundException("Leave balance not found for employee"));
+            balance.setUsedLeaves(balance.getUsedLeaves() + leave.getTotalDays());
+            leaveBalanceRepository.save(balance);
+        }
+        LeaveApplication actionedLeave = leaveApplicationRepository.save(leave);
+        if (newStatus == LeaveStatus.APPROVED) {
+            notificationService.notifyLeaveApproved(leave.getEmployee(), actionedLeave.getLeaveId());
+        } else if (newStatus == LeaveStatus.REJECTED) {
+            notificationService.notifyLeaveRejected(leave.getEmployee(), actionedLeave.getLeaveId());
+        }
+        return actionedLeave;
+    }
+
+    @Transactional
+    public LeaveApplication adminActionLeave(String adminEmail, Integer leaveId, LeaveActionRequest request) {
+        Employee admin = employeeRepository.findByEmail(adminEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Admin not found with email: " + adminEmail));
+        LeaveApplication leave = leaveApplicationRepository.findById(leaveId)
+                .orElseThrow(() -> new ResourceNotFoundException("Leave application not found with id: " + leaveId));
+        if (leave.getStatus() != LeaveStatus.PENDING) {
+            throw new InvalidActionException("Only pending leaves can be approved/rejected. Current status: " + leave.getStatus());
+        }
+        LeaveStatus newStatus;
+        if ("APPROVED".equalsIgnoreCase(request.getAction())) {
+            newStatus = LeaveStatus.APPROVED;
+        } else if ("REJECTED".equalsIgnoreCase(request.getAction())) {
+            if (request.getComments() == null || request.getComments().isBlank()) {
+                throw new BadRequestException("Comments are mandatory when rejecting a leave");
+            }
+            newStatus = LeaveStatus.REJECTED;
+        } else {
+            throw new BadRequestException("Invalid action. Use APPROVED or REJECTED");
+        }
+        leave.setStatus(newStatus);
+        leave.setManagerComments(request.getComments());
+        leave.setActionedBy(admin);
         leave.setActionDate(LocalDateTime.now());
         if (newStatus == LeaveStatus.APPROVED) {
             int year = leave.getStartDate().getYear();
@@ -293,7 +379,6 @@ public class LeaveService {
         holidayRepository.deleteById(holidayId);
     }
 
-    // ==================== Manager Team Leave Calendar ====================
     public List<TeamLeaveCalendarEntry> getTeamLeaveCalendar(String managerEmail, LocalDate startDate, LocalDate endDate) {
         Employee manager = employeeRepository.findByEmail(managerEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("Manager not found with email: " + managerEmail));
@@ -317,7 +402,6 @@ public class LeaveService {
                 .collect(Collectors.toList());
     }
 
-    // ==================== Admin - View All Leave Applications ====================
     public Page<LeaveApplication> getAllLeaveApplications(LeaveStatus status, Pageable pageable) {
         if (status != null) {
             return leaveApplicationRepository.findByStatus(status, pageable);

@@ -21,5 +21,11 @@ public interface PerformanceReviewRepository extends JpaRepository<PerformanceRe
     @Query("select pr from PerformanceReview pr where pr.employee.manager.employeeCode = :managerCode")
     Page<PerformanceReview> findByManagerCode(@Param("managerCode") String managerCode, Pageable pageable);
 
+    @Query("select pr from PerformanceReview pr where pr.employee.manager.employeeCode = :managerCode AND pr.status <> :status")
+    Page<PerformanceReview> findByManagerCodeAndStatusNot(@Param("managerCode") String managerCode, @Param("status") ReviewStatus status, Pageable pageable);
+
     long countByEmployee_EmployeeIdAndStatus(Integer employeeId, ReviewStatus status);
+
+    Page<PerformanceReview> findByStatus(ReviewStatus status, Pageable pageable);
+    Page<PerformanceReview> findByStatusNot(ReviewStatus status, Pageable pageable);
 }

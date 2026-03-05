@@ -9,4 +9,3 @@ public class AccountDeactivatedException extends RuntimeException {
         super(String.format("Account '%s' is deactivated. %s", employeeCode, reason));
     }
 }
-

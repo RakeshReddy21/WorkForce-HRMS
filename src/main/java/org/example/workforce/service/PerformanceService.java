@@ -171,7 +171,8 @@ public class PerformanceService {
         if (status != null) {
             return reviewRepository.findByManagerCodeAndStatus(manager.getEmployeeCode(), status, pageable);
         }
-        return reviewRepository.findByManagerCode(manager.getEmployeeCode(), pageable);
+
+        return reviewRepository.findByManagerCodeAndStatusNot(manager.getEmployeeCode(), ReviewStatus.DRAFT, pageable);
     }
 
     public PerformanceReview getTeamReviewById(String managerEmail, Integer reviewId) {
@@ -230,6 +231,37 @@ public class PerformanceService {
         Goal savedGoal = goalRepository.save(goal);
         notificationService.notifyGoalComment(goal.getEmployee(), savedGoal.getGoalId());
         return savedGoal;
+    }
+
+    public Page<PerformanceReview> getAllReviews(ReviewStatus status, Pageable pageable) {
+        if (status != null) {
+            return reviewRepository.findByStatus(status, pageable);
+        }
+
+        return reviewRepository.findByStatusNot(ReviewStatus.DRAFT, pageable);
+    }
+
+    public PerformanceReview getAdminReviewById(Integer reviewId) {
+        return reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new ResourceNotFoundException("Performance review not found with id: " + reviewId));
+    }
+
+    @Transactional
+    public PerformanceReview provideAdminReviewFeedback(String adminEmail, Integer reviewId, ManagerFeedbackRequest request) {
+        Employee admin = getEmployeeByEmail(adminEmail);
+        PerformanceReview review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new ResourceNotFoundException("Performance review not found with id: " + reviewId));
+        if (review.getStatus() != ReviewStatus.SUBMITTED) {
+            throw new InvalidActionException("Only submitted reviews can be reviewed. Current status: " + review.getStatus());
+        }
+        review.setReviewer(admin);
+        review.setManagerRating(request.getManagerRating());
+        review.setManagerFeedback(request.getManagerFeedback());
+        review.setStatus(ReviewStatus.REVIEWED);
+        review.setReviewedDate(LocalDateTime.now());
+        PerformanceReview savedReview = reviewRepository.save(review);
+        notificationService.notifyReviewFeedback(review.getEmployee(), savedReview.getReviewId());
+        return savedReview;
     }
 
     private Employee getEmployeeByEmail(String email) {

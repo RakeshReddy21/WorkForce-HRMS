@@ -92,3 +92,84 @@ b)	Application Architecture Diagram
 c)	README.md 
 d)	Testing Artifacts
 Key RP
+
+
+
+🏗️ WorkForce HRMS — Advanced Features Roadmap
+Feature 1: 🎨 Dark/Light Theme Toggle
+Complexity: Low | Estimated Effort: 3-4 hours
+Add a theme switcher in the header that lets users toggle between your existing dark theme and a new light theme. The preference is saved to localStorage so it persists across sessions. Use Tailwind's dark: variant strategy with a class on the <html> element. Include a smooth CSS transition when switching. The toggle should be a sun/moon icon button visible on every page.
+Feature 2: 🔔 Real-Time Notification Bell with Badge
+Complexity: Medium | Estimated Effort: 2-3 days
+Build the WebSocket infrastructure (Spring WebSocket + STOMP + SockJS on backend, @stomp/stompjs on frontend). Add a bell icon in the header with an unread count badge. When events happen (leave approved, new announcement, ticket update, chat message), the server pushes a notification instantly. Clicking the bell opens a dropdown panel showing recent notifications with read/unread states, timestamps, and click-to-navigate. Also includes a "Mark all as read" action and a "View All" link to a full notifications page.
+Feature 3: 💬 Team Chat / Internal Messaging
+Complexity: High | Estimated Effort: 4-5 days
+Lightweight real-time messaging system built on top of the WebSocket infrastructure from Feature 2. Scope:
+One-on-one messaging between any two employees (manager ↔ employee, peer ↔ peer)
+Message persistence — messages are stored in the database (new Message entity) so chat history is available after page refresh
+Online presence indicator — green/gray dot showing who's currently online (tracked via WebSocket session lifecycle)
+Typing indicator — "John is typing..." shown in real-time
+Unread message count — shown per conversation and on the sidebar chat icon
+Chat window UI — Sliding panel or dedicated page with conversation list on the left, message thread on the right
+File/image sharing — ability to attach files within chat (reuses multipart upload)
+Feature 4: 🔐 Two-Factor Authentication (2FA)
+Complexity: Medium | Estimated Effort: 2-3 days
+TOTP-based two-factor authentication using com.warrenstrange:googleauth library. Flow:
+Setup: User goes to Settings → Enable 2FA → Server generates a secret key → Display a QR code (using qrcode npm package) → User scans with Google Authenticator / Authy → User enters the 6-digit code to verify and activate
+Login: After entering email + password, if 2FA is enabled, show a second screen asking for the 6-digit TOTP code → Server validates using GoogleAuthenticator.authorize() → Grant access
+Recovery: Generate 8 backup codes during setup → User can use one if they lose their phone
+Admin control: Admin can force-enable 2FA for all users or reset a user's 2FA if they're locked out
+Store the encrypted TOTP secret in a new two_factor_auth table
+Feature 5: 🌐 IP-Based Access Control
+Complexity: Low-Medium | Estimated Effort: 1-2 days
+Restrict admin panel access to specific IP addresses/ranges. Implementation:
+New AllowedIpRange entity with fields: id, ipRange (CIDR notation like 192.168.1.0/24), description, isActive, createdAt
+A Spring Security filter (IpAccessControlFilter) that intercepts requests to /api/admin/** endpoints and validates the client IP against the whitelist
+Admin UI page to manage allowed IP ranges (add, edit, delete, toggle active/inactive)
+Support both IPv4 and IPv6
+Log blocked access attempts in the Activity Log with the rejected IP
+Include a bypass mechanism: Super admin can configure a master override token for emergency access
+Show the user's current IP on the settings page for reference
+Feature 6: 📍 Geo-Fenced Attendance (Biometric/Geo Attendance)
+Complexity: Medium | Estimated Effort: 2-3 days
+Verify that employees are physically within the office premises when checking in/out using the browser's Geolocation API. Implementation:
+Admin configuration: Define one or more office locations with latitude, longitude, and allowedRadiusMeters (e.g., 200m) in a new OfficeLocation entity
+Check-in flow: When employee clicks "Check In", the frontend requests GPS coordinates via navigator.geolocation.getCurrentPosition() → Sends lat/long to the backend → Backend calculates distance using the Haversine formula → If within radius, allow check-in; otherwise, reject with a friendly error
+Store coordinates: Save the employee's check-in/check-out lat/long in the Attendance record for audit purposes
+Map visualization: Show a small map (using Leaflet.js — no API key needed) on the attendance page showing the office boundary circle and the employee's location
+Fallback: Allow admin to configure "geo-fencing required" as optional/mandatory per office location
+Remote work support: Admin can mark certain employees as "remote-allowed" to skip geo-check
+Feature 7: 📅 Calendar Integration (.ics Export)
+Complexity: Low | Estimated Effort: 1 day
+Allow employees to export their approved leaves and company holidays to .ics format for importing into Google Calendar, Outlook, or Apple Calendar. Implementation:
+Backend endpoint /api/employee/calendar/export that generates an .ics file using the iCal4j or Biweekly library
+Includes: All approved leaves for the current year + all company holidays
+Each event has: title (e.g., "Annual Leave - John"), start date, end date, description
+Frontend: "Sync to Calendar" button on the employee dashboard / leaves page / holidays page
+Option to export individual leave or bulk export
+Also generate a subscribable calendar URL (.ics link) that external calendar apps can auto-sync with periodically
+Feature 8: 💰 Expense Reimbursement Module
+Complexity: High | Estimated Effort: 4-5 days
+Full expense claim and reimbursement workflow. Entities: ExpenseClaim (header), ExpenseItem (line items), ExpenseCategory. Flow:
+Employee submits: Create a new expense claim with multiple line items (date, category, amount, description) + upload receipt images/PDFs (multipart file upload stored on disk or S3)
+Categories: Travel, Food, Accommodation, Software/Tools, Office Supplies, Training, Other (admin-configurable)
+Approval workflow: Employee → Manager approves/rejects with comments → (Optional) Finance/Admin final approval
+Status flow: Draft → Submitted → Manager Approved → Finance Approved → Reimbursed (or Rejected at any stage)
+Dashboard widgets: Pending claims count, total reimbursed this month, average processing time
+Manager view: See all pending expense claims from team, approve/reject with comments, view attached receipts
+Admin view: See all expense claims across the organization, mark as "Reimbursed", generate expense reports by department/month
+Policy engine: Set maximum limits per category (e.g., Food max ₹500/day), auto-flag violations
+Feature 9: 🎫 Internal Helpdesk / Ticket System
+Complexity: High | Estimated Effort: 5-6 days
+A full internal helpdesk for employees to raise tickets for IT issues, HR queries, facility requests, or complaints. Entities: Ticket, TicketComment, TicketCategory, TicketAttachment. Scope:
+Categories: IT Support (laptop/software issues), HR Query (payslip/leave policy), Facility Request (desk/AC/parking), Complaint (harassment/workplace issue), Other
+Priority levels: Low, Medium, High, Critical (with color coding)
+Status flow: Open → Assigned → In Progress → Resolved → Closed (employee can reopen if unsatisfied)
+Auto-assignment: Tickets auto-route to the department head or a designated resolver based on category
+SLA tracking: Define expected resolution time per priority (Critical: 4hrs, High: 24hrs, Medium: 3 days, Low: 7 days) → Show SLA countdown, flag overdue tickets in red
+Comments / Activity thread: Both employee and resolver can add comments (like a mini-conversation per ticket). Each comment is timestamped.
+File attachments: Attach screenshots or documents to tickets and comments
+Notifications: Real-time notification (via WebSocket from Feature 2) when ticket is assigned, commented on, or resolved
+Admin dashboard: Ticket analytics — open vs closed, average resolution time, SLA compliance %, tickets by category chart
+Employee view: "My Tickets" page with status filters, raise new ticket form
+Resolver view: Assigned tickets queue, update status, add internal notes

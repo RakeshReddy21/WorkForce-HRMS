@@ -119,14 +119,12 @@ public class DashboardService {
                 .collect(Collectors.toList());
     }
 
-    // ==================== Employee Dashboard ====================
     public EmployeeDashboardResponse getEmployeeDashboard(String email) {
         Employee employee = employeeRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Employee not found with email: " + email));
 
         int currentYear = LocalDate.now().getYear();
 
-        // Leave balances
         List<LeaveBalance> balances = leaveBalanceRepository
                 .findByEmployee_EmployeeIdAndYear(employee.getEmployeeId(), currentYear);
         List<EmployeeDashboardResponse.LeaveBalanceSummary> leaveBalanceSummaries = balances.stream()
@@ -138,13 +136,11 @@ public class DashboardService {
                         .build())
                 .collect(Collectors.toList());
 
-        // Pending & approved leave counts
         long pendingLeaves = leaveApplicationRepository.countByEmployee_EmployeeIdAndStatus(
                 employee.getEmployeeId(), LeaveStatus.PENDING);
         long approvedLeaves = leaveApplicationRepository.countByEmployee_EmployeeIdAndStatus(
                 employee.getEmployeeId(), LeaveStatus.APPROVED);
 
-        // Upcoming holidays (next 30 days)
         LocalDate today = LocalDate.now();
         List<Holiday> holidays = holidayRepository.findByHolidayDateBetween(today, today.plusDays(30));
         List<EmployeeDashboardResponse.UpcomingHolidaySummary> upcomingHolidays = holidays.stream()
@@ -155,7 +151,6 @@ public class DashboardService {
                         .build())
                 .collect(Collectors.toList());
 
-        // Unread notifications
         long unreadNotifications = notificationRepository
                 .countByRecipient_EmployeeIdAndIsRead(employee.getEmployeeId(), false);
 
@@ -172,7 +167,6 @@ public class DashboardService {
                 .build();
     }
 
-    // ==================== Admin Employee Reports ====================
     public EmployeeReportResponse getEmployeeReport() {
         long totalEmployees = employeeRepository.count();
         long activeEmployees = employeeRepository.countByIsActive(true);

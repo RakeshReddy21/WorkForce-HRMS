@@ -35,7 +35,7 @@ public class Goal {
     private String title;
     @Column(columnDefinition = "TEXT")
     private String description;
-    @Column(nullable = false)
+    @Column(name = "year", nullable = false)
     private Integer year;
     @Column(nullable = false)
     private LocalDate deadline;

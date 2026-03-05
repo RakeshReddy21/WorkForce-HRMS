@@ -10,5 +10,6 @@ public enum NotificationType {
     GOAL_UPDATED,
     GOAL_COMMENT,
     ANNOUNCEMENT,
+    CHAT_MESSAGE,
     GENERAL
 }

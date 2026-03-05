@@ -24,7 +24,6 @@ public class EmployeeAttendanceController {
     @Autowired
     private AttendanceService attendanceService;
 
-    // ==================== Check-In ====================
     @PostMapping("/check-in")
     public ResponseEntity<ApiResponse> checkIn(@RequestBody(required = false) CheckInRequest request,
                                                 HttpServletRequest httpRequest) {
@@ -35,7 +34,6 @@ public class EmployeeAttendanceController {
                 .body(new ApiResponse(true, "Checked in successfully", response));
     }
 
-    // ==================== Check-Out ====================
     @PostMapping("/check-out")
     public ResponseEntity<ApiResponse> checkOut(@RequestBody(required = false) CheckOutRequest request,
                                                  HttpServletRequest httpRequest) {
@@ -45,7 +43,6 @@ public class EmployeeAttendanceController {
         return ResponseEntity.ok(new ApiResponse(true, "Checked out successfully", response));
     }
 
-    // ==================== Today's Status ====================
     @GetMapping("/today")
     public ResponseEntity<ApiResponse> getTodayStatus() {
         String email = getCurrentUserEmail();
@@ -53,7 +50,6 @@ public class EmployeeAttendanceController {
         return ResponseEntity.ok(new ApiResponse(true, "Today's attendance status fetched", response));
     }
 
-    // ==================== My Attendance History ====================
     @GetMapping("/history")
     public ResponseEntity<ApiResponse> getMyAttendanceHistory(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -69,7 +65,6 @@ public class EmployeeAttendanceController {
         return ResponseEntity.ok(new ApiResponse(true, "Attendance history fetched", history));
     }
 
-    // ==================== My Attendance Summary ====================
     @GetMapping("/summary")
     public ResponseEntity<ApiResponse> getMySummary(
             @RequestParam(required = false) Integer month,
@@ -79,7 +74,6 @@ public class EmployeeAttendanceController {
         return ResponseEntity.ok(new ApiResponse(true, "Attendance summary fetched", summary));
     }
 
-    // ==================== Helpers ====================
     private String getCurrentUserEmail() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
@@ -100,4 +94,3 @@ public class EmployeeAttendanceController {
         return request.getRemoteAddr();
     }
 }
-

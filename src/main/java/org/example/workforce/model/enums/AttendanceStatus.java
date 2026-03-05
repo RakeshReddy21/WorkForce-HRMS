@@ -8,4 +8,3 @@ public enum AttendanceStatus {
     HOLIDAY,
     WEEKEND
 }
-

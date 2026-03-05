@@ -29,6 +29,7 @@ public class EmployeeProfileResponse {
     private BigDecimal salary;
     private String role;
     private Boolean isActive;
+    private Boolean twoFactorEnabled;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private ManagerInfo manager;

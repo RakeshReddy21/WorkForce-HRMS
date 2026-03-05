@@ -5,6 +5,7 @@ import org.example.workforce.exception.ResourceNotFoundException;
 import org.example.workforce.model.Employee;
 import org.example.workforce.model.Notification;
 import org.example.workforce.model.enums.NotificationType;
+import org.example.workforce.model.enums.Role;
 import org.example.workforce.repository.EmployeeRepository;
 import org.example.workforce.repository.NotificationRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,19 +14,38 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 public class NotificationService {
     @Autowired
     private NotificationRepository notificationRepository;
     @Autowired
     private EmployeeRepository employeeRepository;
+    @Autowired
+    private WebSocketNotificationService wsNotificationService;
 
     public void sendNotification(Employee recipient, String title, String message, NotificationType type, Integer referenceId, String referenceType) {
         Notification notification = Notification.builder()
                 .recipient(recipient)
                 .title(title)
                 .message(message).type(type).referenceId(referenceId).referenceType(referenceType).build();
-        notificationRepository.save(notification);
+        notification = notificationRepository.save(notification);
+
+        try {
+            long unreadCount = notificationRepository.countByRecipient_EmployeeIdAndIsRead(recipient.getEmployeeId(), false);
+            wsNotificationService.pushNotification(recipient.getEmail(), java.util.Map.of(
+                    "notificationId", notification.getNotificationId(),
+                    "title", title,
+                    "message", message,
+                    "type", type.name(),
+                    "referenceId", referenceId != null ? referenceId : "",
+                    "referenceType", referenceType != null ? referenceType : "",
+                    "unreadCount", unreadCount
+            ));
+        } catch (Exception e) {
+
+        }
     }
 
     public Page<Notification> getMyNotifications(String email, Boolean isRead, Pageable pageable) {
@@ -64,9 +84,23 @@ public class NotificationService {
     }
 
     public void notifyLeaveApplied(Employee employee) {
+        String empName = employee.getFirstName() + " " + employee.getLastName();
+
         if (employee.getManager() != null) {
             sendNotification(employee.getManager(), "New Leave Application",
-                    employee.getFirstName() + " " + employee.getLastName() + " has applied for leave.",
+                    empName + " has applied for leave.",
+                    NotificationType.LEAVE_APPLIED, null, "LEAVE_APPLICATION");
+        }
+
+        List<Employee> admins = employeeRepository.findByRoleAndIsActive(Role.ADMIN, true);
+        for (Employee admin : admins) {
+
+            if (employee.getManager() != null
+                    && admin.getEmployeeId().equals(employee.getManager().getEmployeeId())) {
+                continue;
+            }
+            sendNotification(admin, "New Leave Application",
+                    empName + " has applied for leave.",
                     NotificationType.LEAVE_APPLIED, null, "LEAVE_APPLICATION");
         }
     }

@@ -21,7 +21,6 @@ public class AdminAttendanceController {
     @Autowired
     private AttendanceService attendanceService;
 
-    // ==================== All Attendance by Date ====================
     @GetMapping
     public ResponseEntity<ApiResponse> getAllAttendanceByDate(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
@@ -35,7 +34,6 @@ public class AdminAttendanceController {
         return ResponseEntity.ok(new ApiResponse(true, "Attendance records fetched", attendance));
     }
 
-    // ==================== Employee Attendance Summary ====================
     @GetMapping("/{employeeCode}/summary")
     public ResponseEntity<ApiResponse> getEmployeeAttendanceSummary(
             @PathVariable String employeeCode,
@@ -46,4 +44,3 @@ public class AdminAttendanceController {
     }
 
 }
-
