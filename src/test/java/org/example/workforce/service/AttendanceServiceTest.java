@@ -8,7 +8,6 @@ import org.example.workforce.model.Employee;
 import org.example.workforce.model.enums.Role;
 import org.example.workforce.repository.AttendanceRepository;
 import org.example.workforce.repository.EmployeeRepository;
-import org.example.workforce.service.GeoAttendanceService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,6 +16,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import org.example.workforce.dto.AttendanceResponse;
+import org.springframework.test.util.ReflectionTestUtils;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -46,6 +47,12 @@ class AttendanceServiceTest {
 
     @BeforeEach
     void setUp() {
+        // Inject @Value fields that Mockito doesn't handle
+        ReflectionTestUtils.setField(attendanceService, "officeStartTime", "09:00");
+        ReflectionTestUtils.setField(attendanceService, "officeEndTime", "18:00");
+        ReflectionTestUtils.setField(attendanceService, "lateThresholdMinutes", 15);
+        ReflectionTestUtils.setField(attendanceService, "earlyDepartureThresholdMinutes", 30);
+
         employee = Employee.builder()
                 .employeeId(1)
                 .email("employee@test.com")
@@ -123,7 +130,7 @@ class AttendanceServiceTest {
         when(attendanceRepository.findByEmployee_EmployeeIdAndAttendanceDate(
                 employee.getEmployeeId(), LocalDate.now())).thenReturn(Optional.empty());
 
-        assertThrows(InvalidActionException.class, () -> {
+        assertThrows(ResourceNotFoundException.class, () -> {
             attendanceService.checkOut("employee@test.com", request, "192.168.1.1");
         });
     }

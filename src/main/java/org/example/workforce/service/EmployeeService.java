@@ -29,6 +29,8 @@ public class EmployeeService {
     private ActivityLogRepository activityLogRepository;
     @Autowired
     private PasswordEncoder passwordEncoder;
+    @Autowired
+    private EmailService emailService;
 
     public Employee registerEmployee(RegisterEmployeeRequest request) {
         if (employeeRepository.existsByEmail(request.getEmail())) {
@@ -81,7 +83,22 @@ public class EmployeeService {
             }
             employee.setManager(manager);
         }
-        return employeeRepository.save(employee);
+        Employee savedEmployee = employeeRepository.save(employee);
+
+        // Send welcome email with credentials
+        try {
+            emailService.sendWelcomeEmail(
+                    savedEmployee.getEmail(),
+                    savedEmployee.getFirstName() + " " + savedEmployee.getLastName(),
+                    savedEmployee.getEmployeeCode(),
+                    request.getPassword(),
+                    savedEmployee.getRole().name()
+            );
+        } catch (Exception e) {
+            // Don't fail registration if email fails
+        }
+
+        return savedEmployee;
     }
 
     private String generateEmployeeCode(Role role) {
@@ -182,7 +199,9 @@ public class EmployeeService {
                 .address(employee.getAddress())
                 .emergencyContactName(employee.getEmergencyContactName())
                 .emergencyContactPhone(employee.getEmergencyContactPhone())
+                .departmentId(employee.getDepartment() != null ? employee.getDepartment().getDepartmentId() : null)
                 .departmentName(employee.getDepartment() != null ? employee.getDepartment().getDepartmentName() : null)
+                .designationId(employee.getDesignation() != null ? employee.getDesignation().getDesignationId() : null)
                 .designationTitle(employee.getDesignation() != null ? employee.getDesignation().getDesignationName() : null)
                 .joiningDate(employee.getJoiningDate())
                 .salary(employee.getSalary())

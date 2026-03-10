@@ -3,15 +3,17 @@ package org.example.workforce.repository;
 import org.example.workforce.model.Employee;
 import org.example.workforce.model.LeaveBalance;
 import org.example.workforce.model.LeaveType;
+import org.example.workforce.model.enums.Gender;
 import org.example.workforce.model.enums.Role;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
-import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -20,18 +22,14 @@ import static org.junit.jupiter.api.Assertions.*;
 @DataJpaTest
 @ActiveProfiles("test")
 @TestPropertySource(properties = {
+    "spring.datasource.url=jdbc:h2:mem:testdb;MODE=MySQL;DB_CLOSE_DELAY=-1;NON_KEYWORDS=YEAR",
     "spring.jpa.hibernate.ddl-auto=create-drop",
     "spring.jpa.show-sql=true",
     "spring.jpa.properties.hibernate.format_sql=true",
     "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect",
-    "spring.jpa.properties.hibernate.globally_quoted_identifiers=true",
-    "spring.jpa.properties.hibernate.jdbc.time_zone=UTC",
-    "spring.jpa.properties.hibernate.hbm2ddl.auto=create-drop"
+    "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect"
 })
 class LeaveBalanceRepositoryTest {
-
-    @Autowired
-    private TestEntityManager entityManager;
 
     @Autowired
     private LeaveBalanceRepository leaveBalanceRepository;
@@ -49,14 +47,22 @@ class LeaveBalanceRepositoryTest {
     @BeforeEach
     void setUp() {
         employee = Employee.builder()
-                .email("employee@test.com")
-                .firstName("John")
-                .lastName("Doe")
-                .employeeCode("EMP001")
-                .role(Role.EMPLOYEE)
+                .email("admin@workforce.com")
+                .firstName("System")
+                .lastName("Admin")
+                .employeeCode("ADM001")
+                .passwordHash("$2a$10$a0QnKrkXFVR3rKbnqpPHwu1BDucXt96Rf/a1MVeyqd5eKILLHZ7Eu")
+                .phone("0000000000")
+                .dateOfBirth(LocalDate.of(1990, 1, 1))
+                .gender(Gender.MALE)
+                .address("WorkForce HQ")
+                .joiningDate(LocalDate.of(2026, 2, 26))
+                .salary(BigDecimal.ZERO)
+                .role(Role.ADMIN)
                 .isActive(true)
+                .twoFactorEnabled(false)
                 .build();
-        employee = entityManager.persistAndFlush(employee);
+        employee = employeeRepository.saveAndFlush(employee);
 
         leaveType = LeaveType.builder()
                 .leaveTypeName("Casual Leave")
@@ -64,7 +70,7 @@ class LeaveBalanceRepositoryTest {
                 .isPaidLeave(true)
                 .isActive(true)
                 .build();
-        leaveType = entityManager.persistAndFlush(leaveType);
+        leaveType = leaveTypeRepository.saveAndFlush(leaveType);
 
         leaveBalance = LeaveBalance.builder()
                 .employee(employee)
@@ -73,7 +79,7 @@ class LeaveBalanceRepositoryTest {
                 .totalLeaves(10)
                 .usedLeaves(0)
                 .build();
-        leaveBalance = entityManager.persistAndFlush(leaveBalance);
+        leaveBalance = leaveBalanceRepository.saveAndFlush(leaveBalance);
     }
 
     @Test
@@ -116,7 +122,7 @@ class LeaveBalanceRepositoryTest {
                 .isPaidLeave(true)
                 .isActive(true)
                 .build();
-        newLeaveType = entityManager.persistAndFlush(newLeaveType);
+        newLeaveType = leaveTypeRepository.saveAndFlush(newLeaveType);
 
         LeaveBalance newBalance = LeaveBalance.builder()
                 .employee(employee)

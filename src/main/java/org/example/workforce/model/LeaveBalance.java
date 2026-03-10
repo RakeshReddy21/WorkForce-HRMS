@@ -8,8 +8,8 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "leave_balance", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_emp_leave_year", columnNames = {"employee_id", "leave_type_id", "year"})
-}, indexes = {@Index(name = "idx_balance_year", columnList = "year")})
+        @UniqueConstraint(name = "uk_emp_leave_year", columnNames = {"employee_id", "leave_type_id", "`year`"})
+}, indexes = {@Index(name = "idx_balance_year", columnList = "`year`")})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -31,7 +31,7 @@ public class LeaveBalance {
     @JoinColumn(name = "leave_type_id", nullable = false)
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private LeaveType leaveType;
-    @Column(name = "year", nullable = false)
+    @Column(name = "`year`", nullable = false)
     private Integer year;
     @Column(name = "total_leaves")
     @Builder.Default

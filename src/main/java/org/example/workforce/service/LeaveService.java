@@ -113,9 +113,22 @@ public class LeaveService {
         if (!leave.getEmployee().getEmployeeId().equals(employee.getEmployeeId())) {
             throw new AccessDeniedException("You can only cancel your own leave applications");
         }
-        if (leave.getStatus() != LeaveStatus.PENDING) {
-            throw new InvalidActionException("Only pending leaves can be cancelled. Current status: " + leave.getStatus());
+        if (leave.getStatus() != LeaveStatus.PENDING && leave.getStatus() != LeaveStatus.APPROVED) {
+            throw new InvalidActionException("Only pending or approved leaves can be cancelled. Current status: " + leave.getStatus());
         }
+
+        // If the leave was APPROVED, restore the leave balance
+        if (leave.getStatus() == LeaveStatus.APPROVED) {
+            int year = leave.getStartDate().getYear();
+            leaveBalanceRepository.findByEmployee_EmployeeIdAndLeaveType_LeaveTypeIdAndYear(
+                    employee.getEmployeeId(), leave.getLeaveType().getLeaveTypeId(), year)
+                    .ifPresent(balance -> {
+                        int restored = Math.max(balance.getUsedLeaves() - leave.getTotalDays(), 0);
+                        balance.setUsedLeaves(restored);
+                        leaveBalanceRepository.save(balance);
+                    });
+        }
+
         leave.setStatus(LeaveStatus.CANCELLED);
         LeaveApplication cancelledLeave = leaveApplicationRepository.save(leave);
         notificationService.notifyLeaveCancelled(employee, leaveId);

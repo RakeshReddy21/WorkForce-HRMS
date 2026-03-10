@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "goal", indexes = {
         @Index(name = "idx_goal_emp", columnList = "employee_id"),
-        @Index(name = "idx_goal_year", columnList = "year")
+        @Index(name = "idx_goal_year", columnList = "`year`")
 })
 @Getter
 @Setter
@@ -35,7 +35,7 @@ public class Goal {
     private String title;
     @Column(columnDefinition = "TEXT")
     private String description;
-    @Column(name = "year", nullable = false)
+    @Column(name = "`year`", nullable = false)
     private Integer year;
     @Column(nullable = false)
     private LocalDate deadline;

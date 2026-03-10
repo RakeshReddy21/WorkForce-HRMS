@@ -42,9 +42,9 @@ public class DashboardService {
         long totalEmployees = employeeRepository.count();
         long activeEmployees = employeeRepository.countByIsActive(true);
         long inactiveEmployees = employeeRepository.countByIsActive(false);
-        long totalManagers = employeeRepository.countByRole(Role.MANAGER);
-        long totalAdmins = employeeRepository.countByRole(Role.ADMIN);
-        long totalRegular = employeeRepository.countByRole(Role.EMPLOYEE);
+        long totalManagers = employeeRepository.countByRoleAndIsActive(Role.MANAGER, true);
+        long totalAdmins = employeeRepository.countByRoleAndIsActive(Role.ADMIN, true);
+        long totalRegular = employeeRepository.countByRoleAndIsActive(Role.EMPLOYEE, true);
         long pendingLeaves = leaveApplicationRepository.countByStatus(LeaveStatus.PENDING);
         long approvedToday = leaveApplicationRepository.findActiveLeavesToday(LeaveStatus.APPROVED, LocalDate.now()).size();
         long totalDepartments = departmentRepository.count();

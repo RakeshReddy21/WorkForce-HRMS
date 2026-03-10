@@ -23,7 +23,9 @@ public class EmployeeProfileResponse {
     private String address;
     private String emergencyContactName;
     private String emergencyContactPhone;
+    private Integer departmentId;
     private String departmentName;
+    private Integer designationId;
     private String designationTitle;
     private LocalDate joiningDate;
     private BigDecimal salary;

@@ -28,6 +28,7 @@ public interface EmployeeRepository extends JpaRepository<Employee, Integer> {
     List<Employee> findByManager_EmployeeCode(String employeeCode);
     long countByIsActive(Boolean isActive);
     long countByRole(Role role);
+    long countByRoleAndIsActive(Role role, Boolean isActive);
     @Query("SELECT e.department.departmentName, COUNT(e) FROM Employee e WHERE e.department IS NOT NULL AND e.isActive = true GROUP BY e.department.departmentName")
     List<Object[]> countActiveByDepartment();
     long countByDepartment_DepartmentId(Integer departmentId);

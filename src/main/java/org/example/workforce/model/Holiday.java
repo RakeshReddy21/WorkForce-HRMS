@@ -7,7 +7,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "holiday", indexes = {@Index(name = "idx_holiday_year", columnList = "year")})
+@Table(name = "holiday", indexes = {@Index(name = "idx_holiday_year", columnList = "`year`")})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -23,7 +23,7 @@ public class Holiday {
     private LocalDate holidayDate;
     @Column(length = 500)
     private String description;
-    @Column(name = "year", nullable = false)
+    @Column(name = "`year`", nullable = false)
     private Integer year;
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
