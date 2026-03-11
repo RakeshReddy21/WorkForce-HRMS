@@ -16,7 +16,7 @@
     backend_image: "{{ ecr_registry }}/workforce-backend:{{ build_number }}"
     frontend_image: "{{ ecr_registry }}/workforce-frontend:{{ build_number }}"
     # UPDATE this with your actual Target Group ARN from AWS Console
-    target_group_arn: "arn:aws:elasticloadbalancing:eu-north-1:YOUR_ACCOUNT_ID:targetgroup/workforce-tg/xxxxxxxxxx"
+    target_group_arn: "arn:aws:elasticloadbalancing:eu-north-1:942679464303:targetgroup/workforce-tg/bf3252e4e6725220"
 
   tasks:
 
