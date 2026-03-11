@@ -2,12 +2,11 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION         = 'eu-north-1'
-        AWS_ACCOUNT_ID     = credentials('aws-account-id')
-        ECR_BACKEND        = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/workforce-backend"
-        ECR_FRONTEND       = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/workforce-frontend"
-        SONAR_HOST_URL     = 'http://localhost:9000'
-        FRONTEND_REPO      = 'https://github.com/RakeshReddy21/HRMS-Portal.git'
+        AWS_REGION       = 'eu-north-1'
+        AWS_ACCOUNT_ID   = credentials('aws-account-id')
+        SONAR_HOST_URL   = 'http://localhost:9000'
+        FRONTEND_REPO    = 'https://github.com/RakeshReddy21/HRMS-Portal.git'
+        TARGET_GROUP_ARN = 'arn:aws:elasticloadbalancing:eu-north-1:942679464303:targetgroup/workforce-tg/bf3252e4e6725220'
     }
 
     tools {
@@ -93,21 +92,25 @@ pipeline {
 
         // ═══════════════════════════════════════════
         //  STAGE 6: Docker Build & Push Backend to ECR
+        //  NOTE: Single-quoted sh ''' blocks use shell-
+        //  level $VAR expansion, avoiding Groovy string
+        //  interpolation of the AWS_ACCOUNT_ID credential.
         // ═══════════════════════════════════════════
         stage('Docker Build & Push Backend') {
             steps {
                 echo '🐳 Building and pushing backend Docker image to ECR...'
-                script {
-                    sh """
-                        aws ecr get-login-password --region ${AWS_REGION} | \
-                        docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+                sh '''
+                    aws ecr get-login-password --region $AWS_REGION | \
+                    docker login --username AWS --password-stdin \
+                        $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
 
-                        docker build -t ${ECR_BACKEND}:${BUILD_NUMBER} -t ${ECR_BACKEND}:latest .
+                    docker build \
+                        -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/workforce-backend:$BUILD_NUMBER \
+                        -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/workforce-backend:latest .
 
-                        docker push ${ECR_BACKEND}:${BUILD_NUMBER}
-                        docker push ${ECR_BACKEND}:latest
-                    """
-                }
+                    docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/workforce-backend:$BUILD_NUMBER
+                    docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/workforce-backend:latest
+                '''
             }
         }
 
@@ -117,24 +120,83 @@ pipeline {
         stage('Docker Build & Push Frontend') {
             steps {
                 echo '🐳 Building and pushing frontend Docker image to ECR...'
-                script {
-                    sh """
-                        rm -rf /tmp/hrms-portal
-                        git clone ${FRONTEND_REPO} /tmp/hrms-portal
+                sh '''
+                    rm -rf /tmp/hrms-portal
+                    git clone $FRONTEND_REPO /tmp/hrms-portal
 
-                        docker build -t ${ECR_FRONTEND}:${BUILD_NUMBER} -t ${ECR_FRONTEND}:latest /tmp/hrms-portal/
+                    docker build \
+                        -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/workforce-frontend:$BUILD_NUMBER \
+                        -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/workforce-frontend:latest \
+                        /tmp/hrms-portal/
 
-                        docker push ${ECR_FRONTEND}:${BUILD_NUMBER}
-                        docker push ${ECR_FRONTEND}:latest
+                    docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/workforce-frontend:$BUILD_NUMBER
+                    docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/workforce-frontend:latest
 
-                        rm -rf /tmp/hrms-portal
-                    """
-                }
+                    rm -rf /tmp/hrms-portal
+                '''
             }
         }
 
         // ═══════════════════════════════════════════
-        //  STAGE 8: Ansible Blue-Green Deployment
+        //  STAGE 8: Discover EC2 targets from ALB
+        //  Queries the target group to get instance IDs,
+        //  resolves their private IPs, and writes a fresh
+        //  ansible/hosts.ini so Ansible can reach them.
+        // ═══════════════════════════════════════════
+        stage('Generate Ansible Inventory') {
+            steps {
+                echo '📋 Discovering EC2 instances from ALB target group...'
+                sh '''
+                    echo "Querying target group for registered instances..."
+
+                    INSTANCE_IDS=$(aws elbv2 describe-target-health \
+                        --target-group-arn $TARGET_GROUP_ARN \
+                        --region $AWS_REGION \
+                        --query 'TargetHealthDescriptions[*].Target.Id' \
+                        --output text)
+
+                    if [ -z "$INSTANCE_IDS" ]; then
+                        echo "ERROR: No instances found in target group!"
+                        exit 1
+                    fi
+
+                    echo "[webservers]" > ansible/hosts.ini
+
+                    INDEX=1
+                    for ID in $INSTANCE_IDS; do
+                        PRIVATE_IP=$(aws ec2 describe-instances \
+                            --instance-ids "$ID" \
+                            --region $AWS_REGION \
+                            --query 'Reservations[0].Instances[0].PrivateIpAddress' \
+                            --output text)
+
+                        if [ "$PRIVATE_IP" = "None" ] || [ -z "$PRIVATE_IP" ]; then
+                            echo "WARNING: Could not resolve IP for instance $ID, skipping..."
+                            continue
+                        fi
+
+                        echo "ec2-instance-$INDEX ansible_host=$PRIVATE_IP" >> ansible/hosts.ini
+                        echo "  → Found instance $ID → $PRIVATE_IP"
+                        INDEX=$((INDEX + 1))
+                    done
+
+                    echo "" >> ansible/hosts.ini
+                    echo "[webservers:vars]" >> ansible/hosts.ini
+                    echo "ansible_user=ec2-user" >> ansible/hosts.ini
+                    echo "ansible_ssh_common_args='-o StrictHostKeyChecking=no'" >> ansible/hosts.ini
+
+                    echo ""
+                    echo "=== Generated Ansible Inventory ==="
+                    cat ansible/hosts.ini
+                '''
+            }
+        }
+
+        // ═══════════════════════════════════════════
+        //  STAGE 9: Ansible Blue-Green Deployment
+        //  Uses extraVars with hidden:true for the
+        //  account ID so it never leaks via Groovy
+        //  string interpolation.
         // ═══════════════════════════════════════════
         stage('Deploy via Ansible') {
             steps {
@@ -143,7 +205,13 @@ pipeline {
                     playbook: 'ansible/deploy.yml',
                     inventory: 'ansible/hosts.ini',
                     credentialsId: 'ec2-ssh-key',
-                    extras: "-e build_number=${BUILD_NUMBER} -e aws_account_id=${AWS_ACCOUNT_ID} -e aws_region=${AWS_REGION}"
+                    disableHostKeyChecking: true,
+                    extraVars: [
+                        build_number:    env.BUILD_NUMBER,
+                        aws_account_id:  [value: env.AWS_ACCOUNT_ID, hidden: true],
+                        aws_region:      env.AWS_REGION,
+                        target_group_arn: env.TARGET_GROUP_ARN
+                    ]
                 )
             }
         }
@@ -157,9 +225,7 @@ pipeline {
             echo '❌ Pipeline failed! Check the logs above for details.'
         }
         always {
-            // Clean up Docker images to save disk space (ignore errors)
             sh 'docker image prune -f || true'
         }
     }
 }
-

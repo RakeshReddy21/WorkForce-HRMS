@@ -5,6 +5,12 @@
 # Strategy: serial: 1 → deploys ONE server at a time
 # Server is deregistered from ALB → updated → health checked → re-registered
 # This ensures ZERO downtime during deployment
+#
+# Required variables (passed from Jenkins via extraVars):
+#   - build_number       (Jenkins BUILD_NUMBER)
+#   - aws_account_id     (ECR registry account)
+#   - aws_region         (e.g. eu-north-1)
+#   - target_group_arn   (ALB target group ARN)
 
 - name: Blue-Green Deploy WorkForce HRMS
   hosts: webservers
@@ -15,8 +21,6 @@
     ecr_registry: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com"
     backend_image: "{{ ecr_registry }}/workforce-backend:{{ build_number }}"
     frontend_image: "{{ ecr_registry }}/workforce-frontend:{{ build_number }}"
-    # UPDATE this with your actual Target Group ARN from AWS Console
-    target_group_arn: "arn:aws:elasticloadbalancing:eu-north-1:942679464303:targetgroup/workforce-tg/bf3252e4e6725220"
 
   tasks:
 
@@ -39,8 +43,16 @@
       changed_when: "'Image is up to date' not in pull_frontend.stdout"
 
     # ─── Step 3: Deregister instance from ALB (Blue phase) ───
-    - name: Get EC2 instance ID
-      shell: curl -s http://169.254.169.254/latest/meta-data/instance-id
+    - name: Get IMDSv2 token
+      shell: >
+        curl -s -X PUT "http://169.254.169.254/latest/api/token"
+        -H "X-aws-ec2-metadata-token-ttl-seconds: 21600"
+      register: imds_token
+
+    - name: Get EC2 instance ID (IMDSv2)
+      shell: >
+        curl -s -H "X-aws-ec2-metadata-token: {{ imds_token.stdout }}"
+        http://169.254.169.254/latest/meta-data/instance-id
       register: instance_id
 
     - name: Deregister instance from ALB target group
@@ -148,4 +160,3 @@
     - name: Rollback deployment
       debug:
         msg: "⚠️ Deployment failed! Manual rollback may be needed."
-
