@@ -29,16 +29,14 @@
 
     # ─── Step 2: Pull new Docker images ───
     - name: Pull new backend image
-      docker_image:
-        name: "{{ backend_image }}"
-        source: pull
-        force_source: yes
+      shell: docker pull {{ backend_image }}
+      register: pull_backend
+      changed_when: "'Image is up to date' not in pull_backend.stdout"
 
     - name: Pull new frontend image
-      docker_image:
-        name: "{{ frontend_image }}"
-        source: pull
-        force_source: yes
+      shell: docker pull {{ frontend_image }}
+      register: pull_frontend
+      changed_when: "'Image is up to date' not in pull_frontend.stdout"
 
     # ─── Step 3: Deregister instance from ALB (Blue phase) ───
     - name: Get EC2 instance ID
@@ -59,43 +57,41 @@
 
     # ─── Step 4: Stop old containers ───
     - name: Stop and remove old backend container
-      docker_container:
-        name: backend
-        state: absent
+      shell: |
+        docker stop backend || true
+        docker rm backend || true
       ignore_errors: yes
 
     - name: Stop and remove old frontend container
-      docker_container:
-        name: frontend
-        state: absent
+      shell: |
+        docker stop frontend || true
+        docker rm frontend || true
       ignore_errors: yes
 
     # ─── Step 5: Start new containers (Green phase) ───
     - name: Start new backend container
-      docker_container:
-        name: backend
-        image: "{{ backend_image }}"
-        state: started
-        restart_policy: always
-        ports:
-          - "8080:8080"
-        env:
-          SPRING_PROFILES_ACTIVE: "prod"
-          JAVA_OPTS: "-Xms256m -Xmx512m -Duser.timezone=Asia/Kolkata"
-        # On Linux, add host.docker.internal mapping
-        etc_hosts:
-          host.docker.internal: "host-gateway"
+      shell: |
+        docker run -d \
+          --name backend \
+          --restart always \
+          -p 8080:8080 \
+          -e SPRING_PROFILES_ACTIVE=prod \
+          -e JAVA_OPTS="-Xms256m -Xmx512m -Duser.timezone=Asia/Kolkata" \
+          --add-host=host.docker.internal:host-gateway \
+          {{ backend_image }}
+      register: start_backend
+      changed_when: start_backend.rc == 0
 
     - name: Start new frontend container
-      docker_container:
-        name: frontend
-        image: "{{ frontend_image }}"
-        state: started
-        restart_policy: always
-        ports:
-          - "80:80"
-        etc_hosts:
-          host.docker.internal: "host-gateway"
+      shell: |
+        docker run -d \
+          --name frontend \
+          --restart always \
+          -p 80:80 \
+          --add-host=host.docker.internal:host-gateway \
+          {{ frontend_image }}
+      register: start_frontend
+      changed_when: start_frontend.rc == 0
 
     # ─── Step 6: Health check — wait for backend to start ───
     - name: Wait for backend health check (up to 2 minutes)
