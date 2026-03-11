@@ -24,6 +24,31 @@
 
   tasks:
 
+    # ─── Step 0: Install Docker (if not already present) ───
+    - name: Check if Docker is installed
+      command: docker --version
+      register: docker_check
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Install Docker on Amazon Linux 2023
+      yum:
+        name: docker
+        state: present
+      when: docker_check.rc != 0
+
+    - name: Start and enable Docker service
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add ec2-user to docker group
+      user:
+        name: ec2-user
+        groups: docker
+        append: yes
+
     # ─── Step 1: Login to ECR ───
     - name: Login to AWS ECR
       shell: |
