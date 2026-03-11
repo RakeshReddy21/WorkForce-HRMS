@@ -338,17 +338,31 @@ class LeaveServiceTest {
 
     @Test
     void testCancelLeave_AlreadyApproved() {
-
+        LocalDate startDate = LocalDate.now().plusDays(1);
+        LocalDate endDate = LocalDate.now().plusDays(3);
+        int year = startDate.getYear();
+        
         LeaveApplication leave = LeaveApplication.builder()
                 .leaveId(1)
                 .employee(employee)
+                .leaveType(leaveType)
+                .startDate(startDate)
+                .endDate(endDate)
+                .totalDays(3)
                 .status(LeaveStatus.APPROVED)
                 .build();
+        
         when(employeeRepository.findByEmail("employee@test.com")).thenReturn(Optional.of(employee));
         when(leaveApplicationRepository.findById(1)).thenReturn(Optional.of(leave));
+        when(leaveBalanceRepository.findByEmployee_EmployeeIdAndLeaveType_LeaveTypeIdAndYear(
+                employee.getEmployeeId(), leaveType.getLeaveTypeId(), year))
+                .thenReturn(Optional.of(leaveBalance));
+        when(leaveApplicationRepository.save(any(LeaveApplication.class))).thenAnswer(i -> i.getArgument(0));
 
-        assertThrows(InvalidActionException.class, () -> {
-            leaveService.cancelLeave("employee@test.com", 1);
-        });
+        LeaveApplication result = leaveService.cancelLeave("employee@test.com", 1);
+
+        assertNotNull(result);
+        assertEquals(LeaveStatus.CANCELLED, result.getStatus());
+        verify(leaveBalanceRepository, times(1)).save(any(LeaveBalance.class));
     }
 }

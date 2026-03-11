@@ -90,9 +90,9 @@ class DashboardServiceTest {
         when(employeeRepository.count()).thenReturn(50L);
         when(employeeRepository.countByIsActive(true)).thenReturn(45L);
         when(employeeRepository.countByIsActive(false)).thenReturn(5L);
-        when(employeeRepository.countByRole(Role.MANAGER)).thenReturn(10L);
-        when(employeeRepository.countByRole(Role.ADMIN)).thenReturn(2L);
-        when(employeeRepository.countByRole(Role.EMPLOYEE)).thenReturn(38L);
+        when(employeeRepository.countByRoleAndIsActive(Role.MANAGER, true)).thenReturn(10L);
+        when(employeeRepository.countByRoleAndIsActive(Role.ADMIN, true)).thenReturn(2L);
+        when(employeeRepository.countByRoleAndIsActive(Role.EMPLOYEE, true)).thenReturn(38L);
         when(leaveApplicationRepository.countByStatus(LeaveStatus.PENDING)).thenReturn(3L);
         when(leaveApplicationRepository.findActiveLeavesToday(eq(LeaveStatus.APPROVED), any(LocalDate.class)))
                 .thenReturn(List.of());
