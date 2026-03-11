@@ -30,6 +30,10 @@
         <java.version>17</java.version>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
+        <sonar.projectKey>workforce-backend</sonar.projectKey>
+        <sonar.projectName>WorkForce HRMS Backend</sonar.projectName>
+        <sonar.java.coveragePlugin>jacoco</sonar.java.coveragePlugin>
+        <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
     </properties>
     <dependencies>
         <dependency>
@@ -166,6 +170,11 @@
                         <exclude>**/WorkforceApplicationTests.java</exclude>
                     </excludes>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.sonarsource.scanner.maven</groupId>
+                <artifactId>sonar-maven-plugin</artifactId>
+                <version>3.11.0.3922</version>
             </plugin>
             <plugin>
                 <groupId>org.jacoco</groupId>

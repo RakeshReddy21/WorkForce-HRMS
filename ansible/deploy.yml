@@ -1,0 +1,155 @@
+---
+# ═══════════════════════════════════════════════════════════════
+# WorkForce HRMS — Ansible Blue-Green Deployment Playbook
+# ═══════════════════════════════════════════════════════════════
+# Strategy: serial: 1 → deploys ONE server at a time
+# Server is deregistered from ALB → updated → health checked → re-registered
+# This ensures ZERO downtime during deployment
+
+- name: Blue-Green Deploy WorkForce HRMS
+  hosts: webservers
+  become: yes
+  serial: 1
+
+  vars:
+    ecr_registry: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com"
+    backend_image: "{{ ecr_registry }}/workforce-backend:{{ build_number }}"
+    frontend_image: "{{ ecr_registry }}/workforce-frontend:{{ build_number }}"
+    # UPDATE this with your actual Target Group ARN from AWS Console
+    target_group_arn: "arn:aws:elasticloadbalancing:eu-north-1:YOUR_ACCOUNT_ID:targetgroup/workforce-tg/xxxxxxxxxx"
+
+  tasks:
+
+    # ─── Step 1: Login to ECR ───
+    - name: Login to AWS ECR
+      shell: |
+        aws ecr get-login-password --region {{ aws_region }} | \
+        docker login --username AWS --password-stdin {{ ecr_registry }}
+      register: ecr_login
+
+    # ─── Step 2: Pull new Docker images ───
+    - name: Pull new backend image
+      docker_image:
+        name: "{{ backend_image }}"
+        source: pull
+        force_source: yes
+
+    - name: Pull new frontend image
+      docker_image:
+        name: "{{ frontend_image }}"
+        source: pull
+        force_source: yes
+
+    # ─── Step 3: Deregister instance from ALB (Blue phase) ───
+    - name: Get EC2 instance ID
+      shell: curl -s http://169.254.169.254/latest/meta-data/instance-id
+      register: instance_id
+
+    - name: Deregister instance from ALB target group
+      shell: |
+        aws elbv2 deregister-targets \
+          --target-group-arn {{ target_group_arn }} \
+          --targets Id={{ instance_id.stdout }} \
+          --region {{ aws_region }}
+      ignore_errors: yes
+
+    - name: Wait for connections to drain (30 seconds)
+      pause:
+        seconds: 30
+
+    # ─── Step 4: Stop old containers ───
+    - name: Stop and remove old backend container
+      docker_container:
+        name: backend
+        state: absent
+      ignore_errors: yes
+
+    - name: Stop and remove old frontend container
+      docker_container:
+        name: frontend
+        state: absent
+      ignore_errors: yes
+
+    # ─── Step 5: Start new containers (Green phase) ───
+    - name: Start new backend container
+      docker_container:
+        name: backend
+        image: "{{ backend_image }}"
+        state: started
+        restart_policy: always
+        ports:
+          - "8080:8080"
+        env:
+          SPRING_PROFILES_ACTIVE: "prod"
+          JAVA_OPTS: "-Xms256m -Xmx512m -Duser.timezone=Asia/Kolkata"
+        # On Linux, add host.docker.internal mapping
+        etc_hosts:
+          host.docker.internal: "host-gateway"
+
+    - name: Start new frontend container
+      docker_container:
+        name: frontend
+        image: "{{ frontend_image }}"
+        state: started
+        restart_policy: always
+        ports:
+          - "80:80"
+        etc_hosts:
+          host.docker.internal: "host-gateway"
+
+    # ─── Step 6: Health check — wait for backend to start ───
+    - name: Wait for backend health check (up to 2 minutes)
+      uri:
+        url: http://localhost:8080/api/auth/login
+        method: POST
+        body: "{}"
+        body_format: json
+        status_code: [200, 400, 401, 403]
+      register: health_check
+      until: health_check.status is defined
+      retries: 24
+      delay: 5
+
+    - name: Verify frontend is serving
+      uri:
+        url: http://localhost/
+        status_code: 200
+      register: frontend_check
+      retries: 5
+      delay: 3
+
+    # ─── Step 7: Re-register instance in ALB (Green is live) ───
+    - name: Re-register instance in ALB target group
+      shell: |
+        aws elbv2 register-targets \
+          --target-group-arn {{ target_group_arn }} \
+          --targets Id={{ instance_id.stdout }} \
+          --region {{ aws_region }}
+
+    - name: Wait for ALB health check to pass (60 seconds)
+      pause:
+        seconds: 60
+
+    - name: Verify instance is healthy in target group
+      shell: |
+        aws elbv2 describe-target-health \
+          --target-group-arn {{ target_group_arn }} \
+          --targets Id={{ instance_id.stdout }} \
+          --region {{ aws_region }} \
+          --query 'TargetHealthDescriptions[0].TargetHealth.State' \
+          --output text
+      register: target_health
+      until: target_health.stdout == 'healthy'
+      retries: 10
+      delay: 15
+
+    # ─── Step 8: Clean up old images ───
+    - name: Remove unused Docker images
+      shell: docker image prune -af
+      ignore_errors: yes
+
+  handlers:
+    - name: Rollback deployment
+      debug:
+        msg: "⚠️ Deployment failed! Manual rollback may be needed."
+

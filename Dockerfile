@@ -16,12 +16,22 @@ FROM eclipse-temurin:17-jre-alpine
 
 WORKDIR /app
 
+# Set timezone to IST
+ENV TZ=Asia/Kolkata
+RUN apk add --no-cache tzdata && \
+    cp /usr/share/zoneinfo/Asia/Kolkata /etc/localtime && \
+    echo "Asia/Kolkata" > /etc/timezone && \
+    apk del tzdata
+
 # Copy the built JAR from the build stage
 COPY --from=build /app/target/Workforce-0.0.1-SNAPSHOT.jar app.jar
 
 # Expose the application port
 EXPOSE 8080
 
-# Run the application
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Environment variables (can be overridden at runtime)
+ENV SPRING_PROFILES_ACTIVE=prod
+ENV JAVA_OPTS="-Xms256m -Xmx512m -Duser.timezone=Asia/Kolkata"
 
+# Run the application
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
