@@ -341,7 +341,7 @@ class LeaveServiceTest {
         LocalDate startDate = LocalDate.now().plusDays(1);
         LocalDate endDate = LocalDate.now().plusDays(3);
         int year = startDate.getYear();
-        
+
         LeaveApplication leave = LeaveApplication.builder()
                 .leaveId(1)
                 .employee(employee)

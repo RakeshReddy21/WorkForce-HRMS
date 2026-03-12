@@ -114,6 +114,7 @@
           -p 8080:8080 \
           -e SPRING_PROFILES_ACTIVE=prod \
           -e JAVA_OPTS="-Xms256m -Xmx512m -Duser.timezone=Asia/Kolkata" \
+          -e AWS_REGION={{ aws_region }} \
           --add-host=host.docker.internal:host-gateway \
           {{ backend_image }}
       register: start_backend

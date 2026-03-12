@@ -30,6 +30,9 @@ public interface LeaveApplicationRepository extends JpaRepository<LeaveApplicati
 
     Page<LeaveApplication> findByStatus(LeaveStatus status, Pageable pageable);
 
+    // List variant for AI analysis (no pagination needed)
+    List<LeaveApplication> findByEmployeeEmployeeId(Integer employeeId);
+
     @Query("SELECT la FROM LeaveApplication la WHERE la.employee.manager.employeeCode = :managerCode AND la.status = :status AND la.startDate <= :endDate AND la.endDate >= :startDate")
     List<LeaveApplication> findTeamLeavesBetween(@Param("managerCode") String managerCode, @Param("status") LeaveStatus status, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
