@@ -62,11 +62,11 @@
 
     - name: Parse secrets JSON
       set_fact:
-        db_username: "{{ (secret_json.stdout | from_json)['spring.datasource.username'] }}"
-        db_password: "{{ (secret_json.stdout | from_json)['spring.datasource.password'] }}"
-        jwt_secret: "{{ (secret_json.stdout | from_json)['jwt.secret'] }}"
-        mail_username: "{{ (secret_json.stdout | from_json)['spring.mail.username'] }}"
-        mail_password: "{{ (secret_json.stdout | from_json)['spring.mail.password'] }}"
+        db_username: "{{ (secret_json.stdout | from_json).DB_USERNAME }}"
+        db_password: "{{ (secret_json.stdout | from_json).DB_PASSWORD }}"
+        jwt_secret: "{{ (secret_json.stdout | from_json).JWT_SECRET }}"
+        mail_username: "{{ (secret_json.stdout | from_json).MAIL_USERNAME }}"
+        mail_password: "{{ (secret_json.stdout | from_json).MAIL_PASSWORD }}"
       no_log: true
 
     # ─── Step 2: Login to ECR ───
