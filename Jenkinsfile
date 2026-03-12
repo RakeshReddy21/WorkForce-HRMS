@@ -26,22 +26,14 @@ pipeline {
         }
 
         // ═══════════════════════════════════════════
-        //  STAGE 2: Maven Build (Compile)
+        //  STAGE 2: Build, Test & Package
+        //  Runs full Maven lifecycle in one shot so
+        //  JaCoCo agent attaches properly for coverage.
         // ═══════════════════════════════════════════
-        stage('Maven Build') {
+        stage('Build & Test') {
             steps {
-                echo '🔨 Compiling backend source code...'
-                sh 'mvn clean compile -B'
-            }
-        }
-
-        // ═══════════════════════════════════════════
-        //  STAGE 3: Unit Tests (JUnit + Mockito)
-        // ═══════════════════════════════════════════
-        stage('Unit Tests') {
-            steps {
-                echo '🧪 Running JUnit/Mockito tests...'
-                sh 'mvn test -B'
+                echo '🔨🧪 Compiling, running tests (JaCoCo coverage), and packaging JAR...'
+                sh 'mvn clean verify -B'
             }
             post {
                 always {
@@ -77,16 +69,6 @@ pipeline {
                         echo "⚠️ Quality Gate check timed out or failed, continuing pipeline..."
                     }
                 }
-            }
-        }
-
-        // ═══════════════════════════════════════════
-        //  STAGE 5: Package JAR
-        // ═══════════════════════════════════════════
-        stage('Package JAR') {
-            steps {
-                echo '📦 Packaging Spring Boot JAR...'
-                sh 'mvn package -Dmaven.test.skip=true -B'
             }
         }
 
