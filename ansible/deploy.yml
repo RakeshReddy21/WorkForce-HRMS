@@ -158,7 +158,7 @@
       changed_when: start_frontend.rc == 0
 
     # ─── Step 6: Health check — wait for backend to start ───
-    - name: Wait for backend health check (up to 2 minutes)
+    - name: Wait for backend health check (up to 3 minutes)
       uri:
         url: http://localhost:8080/api/auth/login
         method: POST
@@ -166,9 +166,25 @@
         body_format: json
         status_code: [200, 400, 401, 403]
       register: health_check
-      until: health_check.status is defined
-      retries: 24
+      until: health_check.status is defined and health_check.status in [200, 400, 401, 403]
+      retries: 36
       delay: 5
+      ignore_errors: yes
+
+    - name: Show backend logs if health check failed
+      shell: docker logs --tail 50 backend
+      register: backend_logs
+      when: health_check is failed
+
+    - name: Display backend logs
+      debug:
+        var: backend_logs.stdout_lines
+      when: health_check is failed
+
+    - name: Fail if health check did not pass
+      fail:
+        msg: "Backend health check failed! Check the logs above."
+      when: health_check is failed
 
     - name: Verify frontend is serving
       uri:
