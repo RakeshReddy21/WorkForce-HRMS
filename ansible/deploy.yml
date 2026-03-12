@@ -69,6 +69,51 @@
         mail_password: "{{ (secret_json.stdout | from_json).MAIL_PASSWORD }}"
       no_log: true
 
+    - name: Verify secrets were parsed (show lengths only)
+      debug:
+        msg: >
+          Parsed secret lengths —
+          DB_USERNAME={{ db_username | length }} chars,
+          DB_PASSWORD={{ db_password | length }} chars,
+          JWT_SECRET={{ jwt_secret | length }} chars,
+          MAIL_USERNAME={{ mail_username | length }} chars,
+          MAIL_PASSWORD={{ mail_password | length }} chars
+
+    # ─── Step 1b: Write env file for Docker (avoids shell quoting issues) ───
+    - name: Write backend environment file
+      copy:
+        content: |
+          SPRING_PROFILES_ACTIVE=prod
+          JAVA_OPTS=-Xms256m -Xmx512m -Duser.timezone=Asia/Kolkata
+          AWS_REGION={{ aws_region }}
+          DB_USERNAME={{ db_username }}
+          DB_PASSWORD={{ db_password }}
+          JWT_SECRET={{ jwt_secret }}
+          MAIL_USERNAME={{ mail_username }}
+          MAIL_PASSWORD={{ mail_password }}
+        dest: /opt/backend.env
+        mode: '0600'
+        owner: root
+      no_log: true
+
+    - name: Verify env file was created
+      shell: |
+        echo "Env file lines: $(wc -l < /opt/backend.env)"
+        echo "Keys found:"
+        for KEY in SPRING_PROFILES_ACTIVE DB_USERNAME DB_PASSWORD JWT_SECRET MAIL_USERNAME MAIL_PASSWORD JAVA_OPTS; do
+          if grep -q "^${KEY}=" /opt/backend.env; then
+            echo "  ✅ $KEY present"
+          else
+            echo "  ❌ $KEY MISSING"
+          fi
+        done
+      register: env_file_check
+      changed_when: false
+
+    - name: Display env file verification
+      debug:
+        var: env_file_check.stdout_lines
+
     # ─── Step 2: Login to ECR ───
     - name: Login to AWS ECR
       shell: |
@@ -76,7 +121,7 @@
         docker login --username AWS --password-stdin {{ ecr_registry }}
       register: ecr_login
 
-    # ─── Step 2: Pull new Docker images ───
+    # ─── Step 2b: Pull new Docker images ───
     - name: Pull new backend image
       shell: docker pull {{ backend_image }}
       register: pull_backend
@@ -132,19 +177,11 @@
           --name backend \
           --restart always \
           -p 8080:8080 \
-          -e SPRING_PROFILES_ACTIVE=prod \
-          -e JAVA_OPTS="-Xms256m -Xmx512m -Duser.timezone=Asia/Kolkata" \
-          -e AWS_REGION={{ aws_region }} \
-          -e DB_USERNAME='{{ db_username }}' \
-          -e DB_PASSWORD='{{ db_password }}' \
-          -e JWT_SECRET='{{ jwt_secret }}' \
-          -e MAIL_USERNAME='{{ mail_username }}' \
-          -e MAIL_PASSWORD='{{ mail_password }}' \
+          --env-file /opt/backend.env \
           --add-host=host.docker.internal:host-gateway \
           {{ backend_image }}
       register: start_backend
       changed_when: start_backend.rc == 0
-      no_log: true
 
     - name: Start new frontend container
       shell: |
@@ -156,6 +193,20 @@
           {{ frontend_image }}
       register: start_frontend
       changed_when: start_frontend.rc == 0
+
+    - name: Wait a few seconds for container to initialize
+      pause:
+        seconds: 5
+
+    - name: Show initial backend startup logs
+      shell: docker logs backend 2>&1 | head -30
+      register: startup_logs
+      changed_when: false
+      ignore_errors: yes
+
+    - name: Display initial startup logs
+      debug:
+        var: startup_logs.stdout_lines
 
     # ─── Step 6: Health check — wait for backend to start ───
     - name: Wait for backend health check (up to 3 minutes)
@@ -172,18 +223,29 @@
       ignore_errors: yes
 
     - name: Show backend logs if health check failed
-      shell: docker logs --tail 50 backend
+      shell: docker logs --tail 80 backend 2>&1
       register: backend_logs
       when: health_check is failed
 
-    - name: Display backend logs
+    - name: Display backend error logs
       debug:
         var: backend_logs.stdout_lines
       when: health_check is failed
 
+    - name: Show container status if health check failed
+      shell: docker inspect backend --format {% raw %}'{{.State.Status}} - ExitCode:{{.State.ExitCode}} - Restarting:{{.RestartCount}}'{% endraw %}
+      register: container_status
+      when: health_check is failed
+      ignore_errors: yes
+
+    - name: Display container status
+      debug:
+        var: container_status.stdout
+      when: health_check is failed
+
     - name: Fail if health check did not pass
       fail:
-        msg: "Backend health check failed! Check the logs above."
+        msg: "Backend health check failed after 3 minutes! Check the logs above."
       when: health_check is failed
 
     - name: Verify frontend is serving
