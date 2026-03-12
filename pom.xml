@@ -30,7 +30,6 @@
         <java.version>17</java.version>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
-        <spring-cloud-aws.version>3.3.0</spring-cloud-aws.version>
         <sonar.projectKey>workforce-backend</sonar.projectKey>
         <sonar.projectName>WorkForce HRMS Backend</sonar.projectName>
         <sonar.java.coveragePlugin>jacoco</sonar.java.coveragePlugin>
@@ -138,12 +137,6 @@
             <version>3.0.4</version>
         </dependency>
 
-        <!-- AWS Secrets Manager via Spring Cloud AWS -->
-        <dependency>
-            <groupId>io.awspring.cloud</groupId>
-            <artifactId>spring-cloud-aws-starter-secrets-manager</artifactId>
-            <version>${spring-cloud-aws.version}</version>
-        </dependency>
     </dependencies>
 
     <build>

@@ -49,7 +49,27 @@
         groups: docker
         append: yes
 
-    # ─── Step 1: Login to ECR ───
+    # ─── Step 1: Fetch secrets from AWS Secrets Manager ───
+    - name: Fetch secrets from AWS Secrets Manager
+      shell: |
+        aws secretsmanager get-secret-value \
+          --secret-id workforce/prod \
+          --region {{ aws_region }} \
+          --query 'SecretString' \
+          --output text
+      register: secret_json
+      no_log: true
+
+    - name: Parse secrets JSON
+      set_fact:
+        db_username: "{{ (secret_json.stdout | from_json)['spring.datasource.username'] }}"
+        db_password: "{{ (secret_json.stdout | from_json)['spring.datasource.password'] }}"
+        jwt_secret: "{{ (secret_json.stdout | from_json)['jwt.secret'] }}"
+        mail_username: "{{ (secret_json.stdout | from_json)['spring.mail.username'] }}"
+        mail_password: "{{ (secret_json.stdout | from_json)['spring.mail.password'] }}"
+      no_log: true
+
+    # ─── Step 2: Login to ECR ───
     - name: Login to AWS ECR
       shell: |
         aws ecr get-login-password --region {{ aws_region }} | \
@@ -115,10 +135,16 @@
           -e SPRING_PROFILES_ACTIVE=prod \
           -e JAVA_OPTS="-Xms256m -Xmx512m -Duser.timezone=Asia/Kolkata" \
           -e AWS_REGION={{ aws_region }} \
+          -e DB_USERNAME='{{ db_username }}' \
+          -e DB_PASSWORD='{{ db_password }}' \
+          -e JWT_SECRET='{{ jwt_secret }}' \
+          -e MAIL_USERNAME='{{ mail_username }}' \
+          -e MAIL_PASSWORD='{{ mail_password }}' \
           --add-host=host.docker.internal:host-gateway \
           {{ backend_image }}
       register: start_backend
       changed_when: start_backend.rc == 0
+      no_log: true
 
     - name: Start new frontend container
       shell: |
