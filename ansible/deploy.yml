@@ -32,8 +32,10 @@
       register: swap_check
       changed_when: false
 
-    - name: Create 2GB swapfile
+    - name: Create swapfile if not exists
       command: fallocate -l 2G /swapfile
+      args:
+        creates: /swapfile
       when: swap_check.stdout == ""
 
     - name: Set swapfile permissions
@@ -90,6 +92,10 @@
         name: ec2-user
         groups: docker
         append: yes
+
+    - name: Reload docker group permissions
+      command: newgrp docker
+      ignore_errors: yes
 
     # ─── Step 1: Fetch secrets from AWS Secrets Manager ───
     - name: Fetch secrets from AWS Secrets Manager
@@ -199,7 +205,12 @@
       pause:
         seconds: 30
 
-    # ─── Step 4: Stop old containers ───
+    # ─── Step 4: Clean up port conflicts and stop old containers ───
+    - name: Remove any container using port 8080
+      shell: |
+        docker ps -q --filter "publish=8080" | xargs -r docker rm -f
+      ignore_errors: yes
+
     - name: Stop and remove old backend container
       shell: |
         docker stop backend || true
@@ -253,15 +264,13 @@
         var: startup_logs.stdout_lines
 
     # ─── Step 6: Health check — wait for backend to start ───
-    - name: Wait for backend health check (up to 3 minutes)
+    - name: Wait for backend health check (up to 5 minutes)
       uri:
-        url: http://localhost:8080/api/auth/login
-        method: POST
-        body: "{}"
-        body_format: json
-        status_code: [200, 400, 401, 403]
+        url: http://localhost:8080/actuator/health
+        method: GET
+        status_code: 200
       register: health_check
-      until: health_check.status is defined and health_check.status in [200, 400, 401, 403]
+      until: health_check.status is defined and health_check.status == 200
       retries: 60
       delay: 5
       ignore_errors: yes

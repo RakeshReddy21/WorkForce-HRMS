@@ -183,7 +183,7 @@ pipeline {
         stage('Deploy via Ansible') {
             steps {
                 echo '🚀 Deploying to EC2 via Ansible blue-green strategy...'
-                timeout(time: 10, unit: 'MINUTES') {
+                timeout(time: 15, unit: 'MINUTES') {
                     ansiblePlaybook(
                         playbook: 'ansible/deploy.yml',
                         inventory: 'ansible/hosts.ini',
