@@ -24,7 +24,47 @@
 
   tasks:
 
-    # ─── Step 0: Install Docker (if not already present) ───
+    # ─── Step 0a: Ensure swap is configured (prevents OOM on t3.micro) ───
+    - name: Check if swap is already active
+      command: swapon --show
+      register: swap_check
+      changed_when: false
+
+    - name: Create 2GB swapfile
+      command: fallocate -l 2G /swapfile
+      when: swap_check.stdout == ""
+
+    - name: Set swapfile permissions
+      file:
+        path: /swapfile
+        mode: '0600'
+      when: swap_check.stdout == ""
+
+    - name: Format swapfile
+      command: mkswap /swapfile
+      when: swap_check.stdout == ""
+
+    - name: Enable swap
+      command: swapon /swapfile
+      when: swap_check.stdout == ""
+
+    - name: Make swap permanent in fstab
+      lineinfile:
+        path: /etc/fstab
+        line: '/swapfile swap swap defaults 0 0'
+        state: present
+      when: swap_check.stdout == ""
+
+    - name: Verify swap is active
+      shell: free -h | grep -i swap
+      register: swap_status
+      changed_when: false
+
+    - name: Display swap status
+      debug:
+        var: swap_status.stdout
+
+    # ─── Step 0b: Install Docker (if not already present) ───
     - name: Check if Docker is installed
       command: docker --version
       register: docker_check
