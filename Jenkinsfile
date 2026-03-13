@@ -165,7 +165,7 @@ pipeline {
                     echo "" >> ansible/hosts.ini
                     echo "[webservers:vars]" >> ansible/hosts.ini
                     echo "ansible_user=ec2-user" >> ansible/hosts.ini
-                    echo "ansible_ssh_common_args='-o StrictHostKeyChecking=no'" >> ansible/hosts.ini
+                    echo "ansible_ssh_common_args='-o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=10'" >> ansible/hosts.ini
 
                     echo ""
                     echo "=== Generated Ansible Inventory ==="

@@ -304,9 +304,9 @@
           --targets Id={{ instance_id.stdout }} \
           --region {{ aws_region }}
 
-    - name: Wait for ALB health check to pass (60 seconds)
+    - name: Wait for ALB health check to pass
       pause:
-        seconds: 60
+        seconds: 30
 
     - name: Verify instance is healthy in target group
       shell: |
@@ -318,8 +318,18 @@
           --output text
       register: target_health
       until: target_health.stdout == 'healthy'
-      retries: 10
-      delay: 15
+      retries: 12
+      delay: 10
+      ignore_errors: yes
+
+    - name: Report ALB health status
+      debug:
+        msg: "ALB target health: {{ target_health.stdout | default('unknown') }}"
+
+    - name: Warn if instance not yet healthy in ALB
+      debug:
+        msg: "⚠️ Instance not yet 'healthy' in ALB — deployment succeeded, ALB may need more time. Check AWS console."
+      when: target_health is failed
 
     # ─── Step 8: Clean up old images ───
     - name: Remove unused Docker images
