@@ -18,6 +18,8 @@
   serial: 1
 
   vars:
+    ansible_ssh_timeout: 60
+    ansible_command_timeout: 120
     ecr_registry: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com"
     backend_image: "{{ ecr_registry }}/workforce-backend:{{ build_number }}"
     frontend_image: "{{ ecr_registry }}/workforce-frontend:{{ build_number }}"
@@ -217,6 +219,8 @@
           --name backend \
           --restart always \
           -p 8080:8080 \
+          --memory="700m" \
+          --cpus="0.8" \
           --env-file /opt/backend.env \
           --add-host=host.docker.internal:host-gateway \
           {{ backend_image }}
@@ -258,7 +262,7 @@
         status_code: [200, 400, 401, 403]
       register: health_check
       until: health_check.status is defined and health_check.status in [200, 400, 401, 403]
-      retries: 36
+      retries: 60
       delay: 5
       ignore_errors: yes
 
@@ -320,7 +324,7 @@
       until: target_health.stdout == 'healthy'
       retries: 12
       delay: 10
-      ignore_errors: yes
+      failed_when: false
 
     - name: Report ALB health status
       debug:

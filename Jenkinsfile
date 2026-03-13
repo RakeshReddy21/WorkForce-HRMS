@@ -165,7 +165,7 @@ pipeline {
                     echo "" >> ansible/hosts.ini
                     echo "[webservers:vars]" >> ansible/hosts.ini
                     echo "ansible_user=ec2-user" >> ansible/hosts.ini
-                    echo "ansible_ssh_common_args='-o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=10'" >> ansible/hosts.ini
+                    echo "ansible_ssh_common_args='-o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=10 -o ControlMaster=auto -o ControlPersist=60s'" >> ansible/hosts.ini
 
                     echo ""
                     echo "=== Generated Ansible Inventory ==="
@@ -183,18 +183,20 @@ pipeline {
         stage('Deploy via Ansible') {
             steps {
                 echo '🚀 Deploying to EC2 via Ansible blue-green strategy...'
-                ansiblePlaybook(
-                    playbook: 'ansible/deploy.yml',
-                    inventory: 'ansible/hosts.ini',
-                    credentialsId: 'ec2-ssh-key',
-                    disableHostKeyChecking: true,
-                    extraVars: [
-                        build_number:    env.BUILD_NUMBER,
-                        aws_account_id:  env.AWS_ACCOUNT_ID,
-                        aws_region:      env.AWS_REGION,
-                        target_group_arn: env.TARGET_GROUP_ARN
-                    ]
-                )
+                timeout(time: 10, unit: 'MINUTES') {
+                    ansiblePlaybook(
+                        playbook: 'ansible/deploy.yml',
+                        inventory: 'ansible/hosts.ini',
+                        credentialsId: 'ec2-ssh-key',
+                        disableHostKeyChecking: true,
+                        extraVars: [
+                            build_number:    env.BUILD_NUMBER,
+                            aws_account_id:  env.AWS_ACCOUNT_ID,
+                            aws_region:      env.AWS_REGION,
+                            target_group_arn: env.TARGET_GROUP_ARN
+                        ]
+                    )
+                }
             }
         }
     }
