@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         AWS_REGION       = 'eu-north-1'
-        AWS_ACCOUNT_ID   = credentials('aws-account-id')
+        AWS_ACCOUNT_ID   = '942679464303'
         SONAR_HOST_URL   = 'http://localhost:9000'
         FRONTEND_REPO    = 'https://github.com/RakeshReddy21/HRMS-Portal.git'
         TARGET_GROUP_ARN = 'arn:aws:elasticloadbalancing:eu-north-1:942679464303:targetgroup/workforce-tg/0722c4fdbe07f0dd'
@@ -190,7 +190,7 @@ pipeline {
                     disableHostKeyChecking: true,
                     extraVars: [
                         build_number:    env.BUILD_NUMBER,
-                        aws_account_id:  [value: env.AWS_ACCOUNT_ID, hidden: true],
+                        aws_account_id:  env.AWS_ACCOUNT_ID,
                         aws_region:      env.AWS_REGION,
                         target_group_arn: env.TARGET_GROUP_ARN
                     ]
