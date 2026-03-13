@@ -94,8 +94,7 @@
         append: yes
 
     - name: Reload docker group permissions
-      command: newgrp docker
-      ignore_errors: yes
+      meta: reset_connection
 
     # ─── Step 1: Fetch secrets from AWS Secrets Manager ───
     - name: Fetch secrets from AWS Secrets Manager
