@@ -1536,22 +1536,29 @@ public class AIService {
     // ═══════════════════════════════════════════
 
     private AIChatResponse handleGeneralChat(AIChatRequest request, Role userRole) {
+        // ── Fast-fail if Ollama is not running ──
+        if (!ollamaClient.isAvailable()) {
+            return reply("I'm not sure I understand that. Type 'help' to see what I can do for you.",
+                    getDefaultQuickReplies(userRole));
+        }
+
         try {
             StringBuilder prompt = new StringBuilder();
-            prompt.append("You are a helpful, concise HR assistant for WorkForce HRMS. ");
-            prompt.append("The user's role is: ").append(userRole.name()).append(". ");
-            prompt.append("Keep responses short (2-3 sentences max). ");
-            prompt.append("If the user wants to perform an action, tell them to say it directly. Do NOT use markdown.\n\n");
+            prompt.append("You are a concise HR assistant. Reply in 1-2 sentences. No markdown.\n\n");
 
+            // Only send last 4 history entries to keep prompt short → faster inference
             if (request.getHistory() != null) {
-                for (AIChatRequest.ChatHistoryEntry entry : request.getHistory()) {
+                List<AIChatRequest.ChatHistoryEntry> recent = request.getHistory();
+                int start = Math.max(0, recent.size() - 4);
+                for (int i = start; i < recent.size(); i++) {
+                    AIChatRequest.ChatHistoryEntry entry = recent.get(i);
                     prompt.append(entry.getRole().equals("user") ? "User: " : "Assistant: ");
                     prompt.append(entry.getContent()).append("\n");
                 }
             }
             prompt.append("User: ").append(request.getMessage()).append("\nAssistant:");
 
-            String llmReply = ollamaClient.generate(prompt.toString());
+            String llmReply = ollamaClient.generate(prompt.toString(), 100);
             if (llmReply != null && !llmReply.isBlank() && !llmReply.startsWith("Error")) {
                 return reply(llmReply.trim(), getDefaultQuickReplies(userRole));
             }

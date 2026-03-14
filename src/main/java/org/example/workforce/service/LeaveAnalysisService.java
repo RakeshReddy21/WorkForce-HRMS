@@ -6,6 +6,8 @@ import org.example.workforce.model.*;
 import org.example.workforce.model.enums.LeaveStatus;
 import org.example.workforce.repository.LeaveApplicationRepository;
 import org.example.workforce.repository.LeaveBalanceRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -22,6 +24,8 @@ import java.util.stream.Collectors;
  */
 @Service
 public class LeaveAnalysisService {
+
+    private static final Logger log = LoggerFactory.getLogger(LeaveAnalysisService.class);
 
     @Autowired private LeaveApplicationRepository leaveApplicationRepository;
     @Autowired private LeaveBalanceRepository leaveBalanceRepository;
@@ -173,52 +177,36 @@ public class LeaveAnalysisService {
     }
 
     private int countTeamMembersOnLeave(Integer managerId, LocalDate date) {
-        List<LeaveApplication> teamLeaves = leaveApplicationRepository.findAll().stream()
-                .filter(l -> l.getEmployee().getManager() != null
-                        && l.getEmployee().getManager().getEmployeeId().equals(managerId))
-                .filter(l -> l.getStatus() == LeaveStatus.APPROVED)
-                .filter(l -> !date.isBefore(l.getStartDate()) && !date.isAfter(l.getEndDate()))
-                .toList();
-        return teamLeaves.size();
+        // Single efficient DB query instead of loading all leaves
+        return leaveApplicationRepository.countTeamOnLeave(managerId, LeaveStatus.APPROVED, date);
     }
 
     private void generateAiAnalysis(LeaveAnalysisResponse response, LeaveApplication request) {
+        // Check Ollama availability before attempting — avoids long timeouts
+        if (!ollamaClient.isAvailable()) {
+            log.info("Ollama not available — using data-driven analysis fallback");
+            setDefaultAnalysis(response);
+            return;
+        }
+
         try {
             String prompt = String.format("""
-                    You are an HR analytics assistant. Analyze this leave request and provide a recommendation.
-                    Keep your response concise (3-5 sentences).
-                    
-                    Employee: %s | Department: %s | Designation: %s
-                    Request: %d days of %s (from %s to %s)
-                    Reason: %s
-                    
-                    Leave History This Year: %d days taken | Last Year: %d days
-                    Current Balance for %s: %d days (after approval: %d)
-                    Frequency Trend: %s
-                    Team Members on Leave Today: %d
+                    Analyze this leave request concisely (2-3 sentences).
+                    Employee: %s | Dept: %s | Request: %d days %s
+                    Balance after: %d | Trend: %s | Team on leave: %d
                     Patterns: %s
-                    
-                    Provide:
-                    1. SUMMARY: Brief analysis (2-3 sentences)
-                    2. RECOMMENDATION: APPROVE or REVIEW_FURTHER
-                    3. REASONS: Key reasons for your recommendation (comma-separated)
-                    
-                    Format your response exactly as:
-                    SUMMARY: [your analysis]
+                    Respond EXACTLY as:
+                    SUMMARY: [analysis]
                     RECOMMENDATION: [APPROVE or REVIEW_FURTHER]
-                    REASONS: [reason1, reason2, reason3]
+                    REASONS: [reason1, reason2]
                     """,
-                    response.getEmployeeName(), response.getDepartment(), response.getDesignation(),
-                    request.getTotalDays(), request.getLeaveType().getLeaveTypeName(),
-                    request.getStartDate(), request.getEndDate(),
-                    request.getReason() != null ? request.getReason() : "Not specified",
-                    response.getTotalLeavesTakenThisYear(), response.getTotalLeavesTakenLastYear(),
-                    response.getRequestedType(), response.getBalanceAfterApproval() + request.getTotalDays(),
+                    response.getEmployeeName(), response.getDepartment(),
+                    request.getTotalDays(), response.getRequestedType(),
                     response.getBalanceAfterApproval(),
                     response.getFrequencyTrend(), response.getTeamMembersOnLeaveToday(),
                     String.join("; ", response.getPatterns()));
 
-            String aiResponse = ollamaClient.generate(prompt);
+            String aiResponse = ollamaClient.generate(prompt, 150);
 
             if (aiResponse != null && !aiResponse.startsWith("Error")) {
                 // Parse structured response
@@ -241,9 +229,71 @@ public class LeaveAnalysisService {
     }
 
     private void setDefaultAnalysis(LeaveAnalysisResponse response) {
-        response.setAiSummary("AI analysis unavailable. Review based on the data provided above.");
-        response.setAiRecommendation(response.getBalanceAfterApproval() >= 0 ? "APPROVE" : "REVIEW_FURTHER");
-        response.setAiReasons(List.of("Manual review recommended"));
+        // Generate a meaningful data-driven analysis even without Ollama
+        List<String> reasons = new ArrayList<>();
+        StringBuilder summary = new StringBuilder();
+
+        boolean recommend = true;
+
+        // 1. Balance check
+        if (response.getBalanceAfterApproval() >= 0) {
+            reasons.add("Sufficient leave balance (" + (response.getBalanceAfterApproval() + response.getRequestedDays()) + " available, " + response.getBalanceAfterApproval() + " remaining after)");
+        } else {
+            recommend = false;
+            reasons.add("Insufficient leave balance (would be " + response.getBalanceAfterApproval() + " after approval)");
+        }
+
+        // 2. Team impact
+        if (response.getTeamMembersOnLeaveToday() >= 3) {
+            recommend = false;
+            reasons.add("High team absence — " + response.getTeamMembersOnLeaveToday() + " team members already on leave today");
+        } else if (response.getTeamMembersOnLeaveToday() > 0) {
+            reasons.add(response.getTeamMembersOnLeaveToday() + " team member(s) on leave today — manageable impact");
+        } else {
+            reasons.add("No team members currently on leave — minimal team impact");
+        }
+
+        // 3. Frequency trend
+        if ("INCREASING".equals(response.getFrequencyTrend()) && response.getTotalLeavesTakenThisYear() > 10) {
+            reasons.add("Leave frequency is increasing compared to last year (" + response.getTotalLeavesTakenThisYear() + " vs " + response.getTotalLeavesTakenLastYear() + " days)");
+        } else if ("STABLE".equals(response.getFrequencyTrend()) || "DECREASING".equals(response.getFrequencyTrend())) {
+            reasons.add("Leave usage trend is " + response.getFrequencyTrend().toLowerCase() + " compared to last year");
+        }
+
+        // 4. Patterns
+        boolean hasWarningPattern = response.getPatterns() != null &&
+                response.getPatterns().stream().anyMatch(p -> p.contains("Frequently") || p.contains("High leave frequency"));
+        if (hasWarningPattern) {
+            reasons.add("Some leave patterns detected — review patterns section for details");
+        }
+
+        // 5. Pending count
+        if (response.getPendingLeaveRequests() > 3) {
+            reasons.add(response.getPendingLeaveRequests() + " pending leave requests — consider reviewing all together");
+        }
+
+        // Build summary
+        summary.append(response.getEmployeeName()).append(" (").append(response.getDepartment()).append(") ")
+                .append("is requesting ").append(response.getRequestedDays()).append(" day(s) of ").append(response.getRequestedType()).append(". ");
+
+        if (response.getBalanceAfterApproval() >= 0) {
+            summary.append("They have sufficient balance with ").append(response.getBalanceAfterApproval()).append(" days remaining after approval. ");
+        } else {
+            summary.append("This would exceed their available balance by ").append(Math.abs(response.getBalanceAfterApproval())).append(" day(s). ");
+        }
+
+        summary.append("This year they've taken ").append(response.getTotalLeavesTakenThisYear()).append(" days ")
+                .append("(last year: ").append(response.getTotalLeavesTakenLastYear()).append(" days). ");
+
+        if (response.getTeamMembersOnLeaveToday() == 0) {
+            summary.append("No team members are on leave today, so team coverage looks fine.");
+        } else {
+            summary.append(response.getTeamMembersOnLeaveToday()).append(" team member(s) are on leave today.");
+        }
+
+        response.setAiSummary(summary.toString());
+        response.setAiRecommendation(recommend ? "APPROVE" : "REVIEW_FURTHER");
+        response.setAiReasons(reasons);
     }
 
     private String extractField(String text, String fieldName) {

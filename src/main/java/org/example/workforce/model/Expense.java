@@ -35,7 +35,7 @@ public class Expense {
     @EqualsAndHashCode.Include
     private Integer expenseId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "employee_id", nullable = false)
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Employee employee;
@@ -79,7 +79,7 @@ public class Expense {
     private ExpenseStatus status = ExpenseStatus.DRAFT;
 
     // Manager approval
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "actioned_by")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Employee actionedBy;
@@ -91,7 +91,7 @@ public class Expense {
     private LocalDateTime managerActionDate;
 
     // Finance approval
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "finance_actioned_by")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Employee financeActionedBy;

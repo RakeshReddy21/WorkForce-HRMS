@@ -24,7 +24,7 @@ public class Notification {
     @Column(name = "notification_id")
     @EqualsAndHashCode.Include
     private Integer notificationId;
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "recipient_id", nullable = false)
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Employee recipient;

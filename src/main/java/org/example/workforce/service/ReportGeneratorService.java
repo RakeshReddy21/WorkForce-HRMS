@@ -7,6 +7,8 @@ import org.example.workforce.model.*;
 import org.example.workforce.model.enums.GoalStatus;
 import org.example.workforce.model.enums.LeaveStatus;
 import org.example.workforce.repository.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -25,6 +27,8 @@ import java.util.stream.Collectors;
  */
 @Service
 public class ReportGeneratorService {
+
+    private static final Logger log = LoggerFactory.getLogger(ReportGeneratorService.class);
 
     @Autowired private EmployeeRepository employeeRepository;
     @Autowired private AttendanceService attendanceService;
@@ -133,6 +137,13 @@ public class ReportGeneratorService {
 
     private void generateAiAssessment(PerformanceReportResponse response, Employee employee,
                                        List<PerformanceReview> reviews) {
+        // Check Ollama availability first to avoid long timeouts
+        if (!ollamaClient.isAvailable()) {
+            log.info("Ollama not available — using data-driven assessment fallback");
+            setDefaultAssessment(response);
+            return;
+        }
+
         try {
             StringBuilder reviewDetails = new StringBuilder();
             for (PerformanceReview r : reviews) {
@@ -182,7 +193,7 @@ public class ReportGeneratorService {
                     goalDetails, reviewDetails,
                     response.getAverageSelfRating(), response.getAverageManagerRating());
 
-            String aiResponse = ollamaClient.generate(prompt);
+            String aiResponse = ollamaClient.generate(prompt, 300);
 
             if (aiResponse != null && !aiResponse.startsWith("Error")) {
                 response.setAiOverallAssessment(extractField(aiResponse, "OVERALL_ASSESSMENT:"));
@@ -201,11 +212,112 @@ public class ReportGeneratorService {
     }
 
     private void setDefaultAssessment(PerformanceReportResponse response) {
-        response.setAiOverallAssessment("AI assessment unavailable. Please review the data manually.");
-        response.setAiStrengths("Data-driven assessment pending AI availability.");
-        response.setAiAreasForImprovement("Data-driven assessment pending AI availability.");
-        response.setAiRecommendations("Schedule a 1-on-1 review meeting to discuss performance.");
-        response.setAiRating("MEETS_EXPECTATIONS");
+        // Generate meaningful data-driven assessment even without Ollama
+        StringBuilder overall = new StringBuilder();
+        StringBuilder strengths = new StringBuilder();
+        StringBuilder improvements = new StringBuilder();
+        StringBuilder recommendations = new StringBuilder();
+
+        // ─── Overall Assessment ───
+        overall.append(response.getEmployeeName()).append(" has been present for ")
+                .append(response.getTotalPresentDays()).append(" days with an average of ")
+                .append(response.getAverageHoursPerDay()).append(" hours per day. ");
+
+        double goalRate = response.getTotalGoals() > 0
+                ? (double) response.getCompletedGoals() / response.getTotalGoals() * 100 : 0;
+        if (goalRate >= 80) {
+            overall.append("Goal completion rate is excellent at ").append(String.format("%.0f", goalRate)).append("%. ");
+        } else if (goalRate >= 50) {
+            overall.append("Goal completion is moderate at ").append(String.format("%.0f", goalRate)).append("%. ");
+        } else if (response.getTotalGoals() > 0) {
+            overall.append("Goal completion needs attention at ").append(String.format("%.0f", goalRate)).append("%. ");
+        }
+
+        if (response.getAverageManagerRating() >= 4) {
+            overall.append("Manager ratings indicate strong performance.");
+        } else if (response.getAverageManagerRating() >= 3) {
+            overall.append("Manager ratings indicate solid, consistent performance.");
+        } else if (response.getAverageManagerRating() > 0) {
+            overall.append("Manager ratings suggest room for improvement.");
+        }
+
+        // ─── Strengths ───
+        if (response.getTotalPresentDays() > 0 && response.getLateArrivals() <= 2) {
+            strengths.append("Demonstrates strong punctuality and attendance discipline. ");
+        }
+        if (response.getAverageHoursPerDay() >= 8) {
+            strengths.append("Consistently puts in full working hours (avg ").append(response.getAverageHoursPerDay()).append("h/day). ");
+        }
+        if (goalRate >= 70) {
+            strengths.append("Shows strong goal execution with ").append(response.getCompletedGoals())
+                    .append(" of ").append(response.getTotalGoals()).append(" goals completed. ");
+        }
+        if (response.getAverageSelfRating() > 0 && response.getAverageManagerRating() > 0
+                && Math.abs(response.getAverageSelfRating() - response.getAverageManagerRating()) <= 1) {
+            strengths.append("Self-assessment aligns well with manager evaluation, indicating good self-awareness.");
+        }
+        if (strengths.isEmpty()) {
+            strengths.append("Employee shows consistency in their work routine and availability.");
+        }
+
+        // ─── Areas for Improvement ───
+        if (response.getLateArrivals() > 3) {
+            improvements.append("Late arrivals (").append(response.getLateArrivals())
+                    .append(" instances) should be reduced. ");
+        }
+        if (response.getTotalAbsentDays() > 5) {
+            improvements.append("High absence count (").append(response.getTotalAbsentDays())
+                    .append(" days) — consider discussing attendance expectations. ");
+        }
+        if (goalRate < 50 && response.getTotalGoals() > 0) {
+            improvements.append("Goal completion rate of ").append(String.format("%.0f", goalRate))
+                    .append("% is below expectations — needs focused effort on pending goals. ");
+        }
+        if (response.getAverageHoursPerDay() < 7 && response.getAverageHoursPerDay() > 0) {
+            improvements.append("Average working hours (").append(response.getAverageHoursPerDay())
+                    .append("h/day) are below the standard 8-hour benchmark. ");
+        }
+        if (improvements.isEmpty()) {
+            improvements.append("No major concerns identified. Continue maintaining current performance standards and explore leadership opportunities.");
+        }
+
+        // ─── Recommendations ───
+        if (response.getInProgressGoals() > 0) {
+            recommendations.append("Focus on completing the ").append(response.getInProgressGoals())
+                    .append(" in-progress goal(s) before their deadlines. ");
+        }
+        if (response.getAverageManagerRating() == 0) {
+            recommendations.append("Schedule a manager review session to get formal performance feedback. ");
+        }
+        if (response.getLateArrivals() > 3) {
+            recommendations.append("Discuss time management strategies to improve punctuality. ");
+        }
+        recommendations.append("Schedule regular 1-on-1 check-ins to align on priorities and career growth.");
+
+        // ─── Rating ───
+        String rating;
+        double score = 0;
+        if (response.getAverageManagerRating() > 0) score += response.getAverageManagerRating() * 0.4;
+        else score += 3 * 0.4; // default 3
+        if (response.getTotalGoals() > 0) score += (goalRate / 100.0) * 5 * 0.3;
+        else score += 3 * 0.3;
+        if (response.getTotalPresentDays() > 0) {
+            double attendScore = Math.min(5, 5.0 * response.getTotalPresentDays() / Math.max(response.getTotalPresentDays() + response.getTotalAbsentDays(), 1));
+            score += attendScore * 0.3;
+        } else {
+            score += 3 * 0.3;
+        }
+
+        if (score >= 4.5) rating = "EXCEPTIONAL";
+        else if (score >= 3.5) rating = "EXCEEDS_EXPECTATIONS";
+        else if (score >= 2.5) rating = "MEETS_EXPECTATIONS";
+        else rating = "NEEDS_IMPROVEMENT";
+
+        response.setAiOverallAssessment(overall.toString());
+        response.setAiStrengths(strengths.toString());
+        response.setAiAreasForImprovement(improvements.toString());
+        response.setAiRecommendations(recommendations.toString());
+        response.setAiRating(rating);
     }
 
     private String extractField(String text, String fieldName) {

@@ -27,11 +27,11 @@ public class LeaveApplication {
     @Column(name = "leave_id")
     @EqualsAndHashCode.Include
     private Integer leaveId;
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "employee_id", nullable = false)
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Employee employee;
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "leave_type_id", nullable = false)
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private LeaveType leaveType;
@@ -49,7 +49,7 @@ public class LeaveApplication {
     private LeaveStatus status = LeaveStatus.PENDING;
     @Column(name = "manager_comments", columnDefinition = "TEXT")
     private String managerComments;
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "actioned_by")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Employee actionedBy;

@@ -56,11 +56,11 @@ public class Employee {
     private String emergencyContactName;
     @Column(name = "emergency_contact_phone", length = 20)
     private String emergencyContactPhone;
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "department_id")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Department department;
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "designation_id")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Designation designation;
@@ -68,9 +68,9 @@ public class Employee {
     private LocalDate joiningDate;
     @Column(precision = 12, scale = 2)
     private BigDecimal salary;
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "manager_code", referencedColumnName = "employee_code")
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "manager"})
     private Employee manager;
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)

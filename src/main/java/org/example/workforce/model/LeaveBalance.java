@@ -23,11 +23,11 @@ public class LeaveBalance {
     @Column(name = "balance_id")
     @EqualsAndHashCode.Include
     private Integer balanceId;
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "employee_id", nullable = false)
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Employee employee;
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "leave_type_id", nullable = false)
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private LeaveType leaveType;
@@ -45,7 +45,7 @@ public class LeaveBalance {
     }
     @Column(name = "adjustment_reason", length = 500)
     private String adjustmentReason;
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "adjusted_by")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Employee adjustedBy;

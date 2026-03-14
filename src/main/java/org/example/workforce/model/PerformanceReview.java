@@ -25,11 +25,11 @@ public class PerformanceReview {
     @Column(name = "review_id")
     @EqualsAndHashCode.Include
     private Integer reviewId;
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "employee_id", nullable = false)
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Employee employee;
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "reviewer_id")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Employee reviewer;

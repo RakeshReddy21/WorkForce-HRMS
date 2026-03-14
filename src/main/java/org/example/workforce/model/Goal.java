@@ -27,7 +27,7 @@ public class Goal {
     @Column(name = "goal_id")
     @EqualsAndHashCode.Include
     private Integer goalId;
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "employee_id", nullable = false)
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Employee employee;

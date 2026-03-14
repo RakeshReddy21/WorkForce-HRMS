@@ -33,6 +33,14 @@ public interface LeaveApplicationRepository extends JpaRepository<LeaveApplicati
     // List variant for AI analysis (no pagination needed)
     List<LeaveApplication> findByEmployeeEmployeeId(Integer employeeId);
 
+    // Efficient team-on-leave count for AI analysis (replaces findAll + stream filter)
+    @Query("SELECT COUNT(DISTINCT la.employee.employeeId) FROM LeaveApplication la " +
+           "WHERE la.employee.manager.employeeId = :managerId AND la.status = :status " +
+           "AND la.startDate <= :date AND la.endDate >= :date")
+    int countTeamOnLeave(@Param("managerId") Integer managerId,
+                         @Param("status") LeaveStatus status,
+                         @Param("date") LocalDate date);
+
     @Query("SELECT la FROM LeaveApplication la WHERE la.employee.manager.employeeCode = :managerCode AND la.status = :status AND la.startDate <= :endDate AND la.endDate >= :startDate")
     List<LeaveApplication> findTeamLeavesBetween(@Param("managerCode") String managerCode, @Param("status") LeaveStatus status, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 

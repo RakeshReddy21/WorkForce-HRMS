@@ -25,7 +25,7 @@ public class Announcement {
     private String title;
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "created_by", nullable = false)
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Employee createdBy;
