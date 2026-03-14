@@ -34,7 +34,7 @@ public class ChatMessage {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private ChatConversation conversation;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "sender_id", nullable = false)
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Employee sender;

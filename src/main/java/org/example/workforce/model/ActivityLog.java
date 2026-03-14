@@ -25,7 +25,7 @@ public class ActivityLog {
     @Column(name = "log_id")
     @EqualsAndHashCode.Include
     private Integer logId;
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "performed_by")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Employee performedBy;
