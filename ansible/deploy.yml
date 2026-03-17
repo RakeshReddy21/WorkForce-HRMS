@@ -15,6 +15,8 @@
 - name: Blue-Green Deploy WorkForce HRMS
   hosts: webservers
   become: yes
+  gather_facts: no
+  ignore_unreachable: yes
   serial: 1
 
   vars:
@@ -23,6 +25,23 @@
     ecr_registry: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com"
     backend_image: "{{ ecr_registry }}/workforce-backend:{{ build_number }}"
     frontend_image: "{{ ecr_registry }}/workforce-frontend:{{ build_number }}"
+
+  pre_tasks:
+    - name: Wait for SSH connection before deployment
+      wait_for_connection:
+        timeout: 20
+        connect_timeout: 5
+        sleep: 2
+      register: ssh_ready
+      ignore_errors: yes
+      ignore_unreachable: yes
+
+    - name: Skip host when SSH is unreachable
+      meta: end_host
+      when: ssh_ready is failed
+
+    - name: Gather facts for reachable hosts only
+      setup:
 
   tasks:
 
