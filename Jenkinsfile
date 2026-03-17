@@ -49,17 +49,26 @@ pipeline {
         // ═══════════════════════════════════════════
         stage('SonarQube Analysis') {
             steps {
-                echo '🔍 Running SonarQube code quality analysis...'
-                withSonarQubeEnv('sonarqube') {
-                    sh 'mvn sonar:sonar -B'
+                script {
+                    echo '🔍 Running SonarQube code quality analysis...'
+                    // Keep deployment moving if Sonar server is temporarily unreachable.
+                    catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                        withSonarQubeEnv('sonarqube') {
+                            sh 'mvn sonar:sonar -B'
+                        }
+                    }
                 }
             }
         }
 
         stage('Quality Gate') {
             steps {
-                echo '🚦 Waiting for SonarQube Quality Gate...'
                 script {
+                    if (!fileExists('report-task.txt')) {
+                        echo '⚠️ Sonar report-task.txt not found; skipping Quality Gate.'
+                        return
+                    }
+                    echo '🚦 Waiting for SonarQube Quality Gate...'
                     try {
                         timeout(time: 2, unit: 'MINUTES') {
                             waitForQualityGate abortPipeline: false
