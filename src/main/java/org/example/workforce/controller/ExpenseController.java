@@ -7,9 +7,12 @@ import org.example.workforce.service.InvoiceParserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -54,6 +57,15 @@ public class ExpenseController {
     @GetMapping("/{id}")
     public ResponseEntity<Expense> getExpense(@PathVariable Integer id) {
         return ResponseEntity.ok(expenseService.getExpenseById(id));
+    }
+
+    @GetMapping("/{id}/receipt")
+    public ResponseEntity<Resource> getExpenseReceipt(Authentication auth, @PathVariable Integer id) {
+        ExpenseService.ReceiptFileData receipt = expenseService.getExpenseReceipt(auth.getName(), id);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + receipt.fileName() + "\"")
+                .contentType(MediaType.parseMediaType(receipt.contentType()))
+                .body(receipt.resource());
     }
 
     // AI: Parse invoice text

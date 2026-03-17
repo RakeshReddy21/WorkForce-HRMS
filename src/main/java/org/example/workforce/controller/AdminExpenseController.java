@@ -5,9 +5,12 @@ import org.example.workforce.model.Expense;
 import org.example.workforce.model.enums.ExpenseStatus;
 import org.example.workforce.service.ExpenseService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -52,6 +55,15 @@ public class AdminExpenseController {
             @PathVariable Integer id,
             @RequestBody ExpenseActionRequest request) {
         return ResponseEntity.ok(expenseService.financeAction(auth.getName(), id, request));
+    }
+
+    @GetMapping("/{id}/receipt")
+    public ResponseEntity<Resource> getExpenseReceipt(Authentication auth, @PathVariable Integer id) {
+        ExpenseService.ReceiptFileData receipt = expenseService.getExpenseReceipt(auth.getName(), id);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + receipt.fileName() + "\"")
+                .contentType(MediaType.parseMediaType(receipt.contentType()))
+                .body(receipt.resource());
     }
 }
 
