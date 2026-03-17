@@ -153,6 +153,7 @@ pipeline {
                     echo "[webservers]" > ansible/hosts.ini
 
                     INDEX=1
+                    REACHABLE_COUNT=0
                     for ID in $INSTANCE_IDS; do
                         PRIVATE_IP=$(aws ec2 describe-instances \
                             --instance-ids "$ID" \
@@ -165,10 +166,21 @@ pipeline {
                             continue
                         fi
 
+                        if ! timeout 5 bash -c "cat < /dev/null > /dev/tcp/$PRIVATE_IP/22" 2>/dev/null; then
+                            echo "WARNING: Instance $ID ($PRIVATE_IP) is not reachable on SSH port 22 from Jenkins, skipping..."
+                            continue
+                        fi
+
                         echo "ec2-instance-$INDEX ansible_host=$PRIVATE_IP" >> ansible/hosts.ini
-                        echo "  → Found instance $ID → $PRIVATE_IP"
+                        echo "  → Found reachable instance $ID → $PRIVATE_IP"
                         INDEX=$((INDEX + 1))
+                        REACHABLE_COUNT=$((REACHABLE_COUNT + 1))
                     done
+
+                    if [ "$REACHABLE_COUNT" -eq 0 ]; then
+                        echo "ERROR: No reachable instances found for deployment!"
+                        exit 1
+                    fi
 
                     echo "" >> ansible/hosts.ini
                     echo "[webservers:vars]" >> ansible/hosts.ini
