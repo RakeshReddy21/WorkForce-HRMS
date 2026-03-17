@@ -4,7 +4,6 @@ pipeline {
     environment {
         AWS_REGION       = 'eu-north-1'
         AWS_ACCOUNT_ID   = '942679464303'
-        SONAR_HOST_URL   = 'http://localhost:9000'
         FRONTEND_REPO    = 'https://github.com/RakeshReddy21/HRMS-Portal.git'
         TARGET_GROUP_ARN = 'arn:aws:elasticloadbalancing:eu-north-1:942679464303:targetgroup/workforce-tg/0722c4fdbe07f0dd'
     }
