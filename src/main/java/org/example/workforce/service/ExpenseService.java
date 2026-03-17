@@ -19,7 +19,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Service
 public class ExpenseService {
@@ -59,7 +58,9 @@ public class ExpenseService {
             }
         }
 
-        return expenseRepository.save(expense);
+        Expense saved = expenseRepository.save(expense);
+        initializeExpenseAssociations(saved);
+        return saved;
     }
 
     // ─── Employee: Submit Expense for approval ───
@@ -86,20 +87,25 @@ public class ExpenseService {
                     NotificationType.EXPENSE_SUBMITTED, saved.getExpenseId(), "EXPENSE");
         }
 
+        initializeExpenseAssociations(saved);
         return saved;
     }
 
     // ─── Employee: My Expenses ───
     public Page<Expense> getMyExpenses(String email, Pageable pageable) {
         Employee employee = employeeService.getEmployeeByEmail(email);
-        return expenseRepository.findByEmployeeEmployeeId(employee.getEmployeeId(), pageable);
+        Page<Expense> page = expenseRepository.findByEmployeeEmployeeId(employee.getEmployeeId(), pageable);
+        page.getContent().forEach(this::initializeExpenseAssociations);
+        return page;
     }
 
     // ─── Manager: Team Expenses pending approval ───
     public Page<Expense> getTeamExpenses(String email, Pageable pageable) {
         Employee manager = employeeService.getEmployeeByEmail(email);
-        return expenseRepository.findTeamExpensesByStatus(
+        Page<Expense> page = expenseRepository.findTeamExpensesByStatus(
                 manager.getEmployeeId(), ExpenseStatus.SUBMITTED, pageable);
+        page.getContent().forEach(this::initializeExpenseAssociations);
+        return page;
     }
 
     // ─── Manager: Approve/Reject Expense ───
@@ -143,20 +149,28 @@ public class ExpenseService {
             throw new BadRequestException("Invalid action. Use APPROVED or REJECTED.");
         }
 
-        return expenseRepository.save(expense);
+        Expense saved = expenseRepository.save(expense);
+        initializeExpenseAssociations(saved);
+        return saved;
     }
 
     // ─── Finance/Admin: Expenses pending finance approval ───
     public Page<Expense> getFinancePendingExpenses(Pageable pageable) {
-        return expenseRepository.findByStatus(ExpenseStatus.MANAGER_APPROVED, pageable);
+        Page<Expense> page = expenseRepository.findByStatus(ExpenseStatus.MANAGER_APPROVED, pageable);
+        page.getContent().forEach(this::initializeExpenseAssociations);
+        return page;
     }
 
     // ─── Finance/Admin: All expenses ───
     public Page<Expense> getAllExpenses(ExpenseStatus status, Pageable pageable) {
+        Page<Expense> page;
         if (status != null) {
-            return expenseRepository.findByStatus(status, pageable);
+            page = expenseRepository.findByStatus(status, pageable);
+        } else {
+            page = expenseRepository.findAll(pageable);
         }
-        return expenseRepository.findAll(pageable);
+        page.getContent().forEach(this::initializeExpenseAssociations);
+        return page;
     }
 
     // ─── Finance: Approve/Reject/Reimburse ───
@@ -203,13 +217,18 @@ public class ExpenseService {
             default -> throw new BadRequestException("Invalid action. Use APPROVED, REJECTED, or REIMBURSED.");
         }
 
-        return expenseRepository.save(expense);
+        Expense saved = expenseRepository.save(expense);
+        initializeExpenseAssociations(saved);
+        return saved;
     }
 
     // ─── Helpers ───
+    @Transactional(readOnly = true)
     public Expense getExpenseById(Integer id) {
-        return expenseRepository.findById(id)
+        Expense expense = expenseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Expense not found with id: " + id));
+        initializeExpenseAssociations(expense);
+        return expense;
     }
 
     private void validateOwnership(Expense expense, Employee employee) {
@@ -224,6 +243,12 @@ public class ExpenseService {
             return ExpenseCategory.valueOf(category.toUpperCase());
         } catch (IllegalArgumentException e) {
             return ExpenseCategory.OTHER;
+        }
+    }
+
+    private void initializeExpenseAssociations(Expense expense) {
+        if (expense != null && expense.getItems() != null) {
+            expense.getItems().size();
         }
     }
 }
